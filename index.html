@@ -59,7 +59,7 @@
       <div class="mb-5">
         <label class="block text-sm text-slate-300 mb-1.5 font-medium">1. Ketik Nama Game & Tarik Cover Otomatis</label>
         <div class="flex gap-2">
-          <input type="text" id="searchGameInput" placeholder="Contoh: Naruto Storm Connections"
+          <input type="text" id="searchGameInput" placeholder="Contoh: Grand Theft Auto V"
             onkeydown="if(event.key === 'Enter'){ event.preventDefault(); fetchGameInfo(); }"
             class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500">
           <button type="button" onclick="fetchGameInfo()" id="btnFetch"
@@ -187,7 +187,7 @@
       return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-    // Cari Game langsung lewat Server Apps Script (Super Cepat & Tanpa Proxy Lemot)
+    // Cari Game langsung lewat Server Apps Script (Wikidata Entity + Cover Box Art Resmi)
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -201,8 +201,8 @@
         const res = await fetch(`${API_URL}?action=searchGame&q=${encodeURIComponent(query)}`);
         const items = await res.json();
 
-        if (!items || items.length === 0) {
-          alert('Game tidak ditemukan. Coba ketik judul yang lebih singkat (misal: "Naruto Storm Connections").');
+        if (!items || !Array.isArray(items) || items.length === 0) {
+          alert('Game tidak ditemukan. Coba ketik judul resmi bahasa Inggris (misal: "Grand Theft Auto V").');
           resultsDiv.classList.add('hidden');
         } else {
           foundGamesCache = items;
@@ -211,7 +211,7 @@
           renderSearchResults();
         }
       } catch (err) {
-        alert('Gagal terhubung ke server pencarian.');
+        alert('Gagal terhubung ke server pencarian. Pastikan Apps Script sudah di-Deploy Versi Baru.');
       }
 
       btn.disabled = false;
@@ -223,11 +223,11 @@
       resultsDiv.innerHTML = foundGamesCache.map((g, idx) => `
         <button type="button" onclick="selectFetchedGame(${idx})" 
           class="flex items-center gap-2.5 bg-slate-900 hover:bg-slate-700 border border-slate-700 p-2 rounded-lg text-left transition">
-          <img src="${g.cover}" onerror="this.src='${g.fallbackCover || 'https://placehold.co/100x140?text=No+Img'}'" 
+          <img src="${g.cover}" onerror="this.src='https://placehold.co/100x140/1e293b/94a3b8?text=No+Img'" 
             class="w-10 h-14 object-fill rounded bg-slate-800 shrink-0">
           <div class="overflow-hidden">
             <p class="text-xs font-semibold truncate text-slate-200">${g.title}</p>
-            <p class="text-[10px] text-blue-400 truncate">Official Game Store DB</p>
+            <p class="text-[10px] text-slate-400 truncate">${g.description || 'Video Game'}</p>
           </div>
         </button>
       `).join('');
@@ -239,16 +239,10 @@
 
       document.getElementById('nama').value = game.title;
       document.getElementById('cover').value = game.cover;
-      document.getElementById('genre').value = detectGenre(game.title);
+      document.getElementById('genre').value = detectGenre(game.title + ' ' + (game.description || ''));
 
       const previewImg = document.getElementById('previewCover');
       previewImg.src = game.cover;
-      previewImg.onerror = function() {
-        if (game.fallbackCover && this.src !== game.fallbackCover) {
-          this.src = game.fallbackCover;
-          document.getElementById('cover').value = game.fallbackCover;
-        }
-      };
     }
 
     // Muat Data Games & Platforms sekaligus
