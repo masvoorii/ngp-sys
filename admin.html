@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Input & Edit Data Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
+
+  <div class="max-w-4xl mx-auto">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-slate-700 pb-4">
+      <div>
+        <h1 class="text-2xl font-bold text-blue-400">Admin Database Game</h1>
+        <p class="text-sm text-slate-400">Dilindungi Secret Key • Google Sheets</p>
+      </div>
+      <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-700">
+        <span class="text-xs text-slate-400">🔑 PIN Admin:</span>
+        <input type="password" id="adminSecretInput" placeholder="Masukkan password..."
+          onchange="sessionStorage.setItem('ps_admin_key', this.value)"
+          class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-blue-500 w-36">
+      </div>
+    </div>
+
+    <!-- Form Tambah / Edit Game -->
+    <div id="formCard" class="bg-slate-800 p-6 rounded-xl shadow-lg mb-8 border border-slate-700 transition">
+      <div class="flex justify-between items-center mb-4">
+        <h2 id="formTitle" class="text-lg font-semibold">Tambah Game Baru</h2>
+        <span id="editBadge" class="hidden px-2.5 py-1 rounded text-xs bg-amber-500/20 text-amber-300 font-semibold">Mode Edit Aktif</span>
+      </div>
+      
+      <!-- Langkah 1: Cari Game -->
+      <div class="mb-5">
+        <label class="block text-sm text-slate-300 mb-1.5 font-medium">1. Ketik Nama Game & Tarik Cover Otomatis</label>
+        <div class="flex gap-2">
+          <input type="text" id="searchGameInput" placeholder="Contoh: Grand Theft Auto V"
+            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500">
+          <button type="button" onclick="fetchGameInfo()" id="btnFetch"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-lg transition whitespace-nowrap">
+            🔍 Cari Cover & Info
+          </button>
+        </div>
+        <div id="searchResults" class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 hidden"></div>
+      </div>
+
+      <form id="gameForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
+        <input type="hidden" id="editId" value="">
+
+        <div class="md:row-span-3 flex flex-col items-center justify-center bg-slate-900/70 rounded-lg p-3 border border-slate-700">
+          <img id="previewCover" src="https://placehold.co/300x400/1e293b/94a3b8?text=Cover+Otomatis" 
+            class="w-36 h-48 object-cover rounded shadow-md mb-2">
+          <span class="text-[11px] text-slate-400 text-center">Preview Artcover</span>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs text-slate-400 mb-1">Nama Game</label>
+          <input type="text" id="nama" required placeholder="Judul resmi game..."
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Pilih Platform</label>
+          <select id="platform" required
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+            <option value="PS4">PS4</option>
+            <option value="PS5">PS5</option>
+            <option value="PS3">PS3</option>
+            <option value="PS2">PS2</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Ukuran File</label>
+          <input type="text" id="ukuran" required placeholder="Contoh: 32.5 GB"
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Genre (Otomatis / Bisa Diedit)</label>
+          <input type="text" id="genre" required placeholder="Action, Fighting, dll..."
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">URL Cover (Otomatis / Bisa Paste Manual)</label>
+          <input type="url" id="cover" required placeholder="https://..."
+            oninput="document.getElementById('previewCover').src = this.value"
+            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div class="md:col-span-3 flex justify-end gap-2 mt-2">
+          <button type="button" id="btnCancelEdit" onclick="cancelEdit()"
+            class="hidden bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium px-5 py-2.5 rounded-lg transition">
+            Batal Edit
+          </button>
+          <button type="submit" id="btnSubmit"
+            class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-2.5 rounded-lg transition w-full md:w-auto">
+            + Simpan Game ke Katalog
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Tabel Data Game -->
+    <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+        <h2 class="font-semibold">Daftar Game Tersimpan (<span id="totalCount">0</span>)</h2>
+        <button onclick="loadGames()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded">Refresh Data</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-900/50 text-slate-400">
+            <tr>
+              <th class="p-3">Cover</th>
+              <th class="p-3">Nama Game</th>
+              <th class="p-3">Platform</th>
+              <th class="p-3">Genre</th>
+              <th class="p-3">Ukuran</th>
+              <th class="p-3 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="gameTableBody" class="divide-y divide-slate-700">
+            <tr><td colspan="6" class="p-6 text-center text-slate-400">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycby0Zg_fWuHMLJ-wPvpr-JiVuohn8moT6blKVr32uzGRrngAk0IGZpp8WUllovHrfCc9/exec";
+    let foundGamesCache = [];
+    let savedGamesList = [];
+
+    const savedKey = sessionStorage.getItem('ps_admin_key');
+    if (savedKey) document.getElementById('adminSecretInput').value = savedKey;
+
+    function getSecret() {
+      const val = document.getElementById('adminSecretInput').value.trim();
+      if (!val) {
+        alert('Masukkan PIN / Password Admin terlebih dahulu di pojok kanan atas!');
+        document.getElementById('adminSecretInput').focus();
+        return null;
+      }
+      return val;
+    }
+
+    function detectGenre(text) {
+      const t = text.toLowerCase();
+      const genres = [];
+      if (t.includes('action')) genres.push('Action');
+      if (t.includes('adventure')) genres.push('Adventure');
+      if (t.includes('role-playing') || t.includes('rpg')) genres.push('RPG');
+      if (t.includes('fighting')) genres.push('Fighting');
+      if (t.includes('shooter') || t.includes('first-person') || t.includes('third-person')) genres.push('Shooter');
+      if (t.includes('racing')) genres.push('Racing');
+      if (t.includes('sports') || t.includes('football') || t.includes('soccer') || t.includes('basketball')) genres.push('Sports');
+      if (t.includes('horror') || t.includes('survival')) genres.push('Survival Horror');
+      if (t.includes('open world')) genres.push('Open World');
+      if (t.includes('simulation')) genres.push('Simulation');
+      if (t.includes('hack and slash')) genres.push('Hack and Slash');
+      return genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Action, Adventure';
+    }
+
+    async function fetchGameInfo() {
+      const query = document.getElementById('searchGameInput').value.trim();
+      if (!query) return alert('Ketik nama game terlebih dahulu!');
+
+      const btn = document.getElementById('btnFetch');
+      const resultsDiv = document.getElementById('searchResults');
+      btn.disabled = true;
+      btn.innerText = 'Mencari...';
+
+      try {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=6&prop=pageimages|extracts&pilicense=any&exintro=1&explaintext=1&exsentences=3&pithumbsize=500&format=json&origin=*`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (!data.query || !data.query.pages) {
+          alert('Game tidak ditemukan. Coba ketik judul bahasa Inggris yang lebih spesifik.');
+          resultsDiv.classList.add('hidden');
+        } else {
+          foundGamesCache = Object.values(data.query.pages)
+            .sort((a, b) => a.index - b.index)
+            .filter(g => !g.title.toLowerCase().includes('album') && !g.title.toLowerCase().includes('soundtrack'));
+
+          selectFetchedGame(0);
+          resultsDiv.classList.remove('hidden');
+          resultsDiv.innerHTML = foundGamesCache.map((g, idx) => `
+            <button type="button" onclick="selectFetchedGame(${idx})" 
+              class="flex items-center gap-2 bg-slate-900 hover:bg-slate-700 border border-slate-700 p-2 rounded-lg text-left transition">
+              <img src="${g.thumbnail ? g.thumbnail.source : 'https://placehold.co/100x140/1e293b/94a3b8?text=No+Img'}" class="w-10 h-12 object-cover rounded bg-slate-800">
+              <div class="overflow-hidden">
+                <p class="text-xs font-semibold truncate text-slate-200">${g.title.replace(/\s*\(.*?\)\s*/g, '')}</p>
+                <p class="text-[10px] text-slate-400 truncate">${detectGenre(g.extract || '')}</p>
+              </div>
+            </button>
+          `).join('');
+        }
+      } catch (err) {
+        alert('Gagal mencari data. Periksa koneksi internet.');
+      }
+
+      btn.disabled = false;
+      btn.innerText = '🔍 Cari Cover & Info';
+    }
+
+    function selectFetchedGame(index) {
+      const game = foundGamesCache[index];
+      if (!game) return;
+
+      const cleanTitle = game.title.replace(/\s*\(.*?\)\s*/g, '');
+      const coverUrl = game.thumbnail ? game.thumbnail.source : 'https://placehold.co/300x400?text=No+Cover';
+      const detectedGenre = detectGenre(game.extract || '');
+
+      document.getElementById('nama').value = cleanTitle;
+      document.getElementById('genre').value = detectedGenre;
+      document.getElementById('cover').value = coverUrl;
+      document.getElementById('previewCover').src = coverUrl;
+    }
+
+    async function loadGames() {
+      const tbody = document.getElementById('gameTableBody');
+      tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Memuat data...</td></tr>';
+      try {
+        const res = await fetch(API_URL);
+        const games = await res.json();
+        savedGamesList = games.reverse();
+        document.getElementById('totalCount').innerText = savedGamesList.length;
+
+        if (savedGamesList.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada data game.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = savedGamesList.map(g => `
+          <tr class="hover:bg-slate-700/30">
+            <td class="p-3"><img src="${g.cover}" class="w-10 h-14 object-cover rounded bg-slate-700" onerror="this.src='https://placehold.co/100x140?text=No+Cover'"></td>
+            <td class="p-3 font-medium">${g.nama}</td>
+            <td class="p-3"><span class="px-2 py-0.5 text-xs rounded bg-blue-500/20 text-blue-300 font-semibold">${g.platform}</span></td>
+            <td class="p-3 text-slate-300">${g.genre}</td>
+            <td class="p-3 text-slate-300">${g.ukuran}</td>
+            <td class="p-3 text-right whitespace-nowrap space-x-1">
+              <button onclick="startEdit('${g.id}')" class="text-amber-300 hover:text-amber-200 text-xs bg-amber-500/15 px-2.5 py-1 rounded">Edit</button>
+              <button onclick="deleteGame('${g.id}')" class="text-red-400 hover:text-red-300 text-xs bg-red-500/10 px-2.5 py-1 rounded">Hapus</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-red-400">Gagal memuat data. Cek URL Apps Script.</td></tr>';
+      }
+    }
+
+    // Masuk ke Mode Edit
+    function startEdit(id) {
+      const game = savedGamesList.find(item => item.id == id);
+      if (!game) return;
+
+      document.getElementById('editId').value = game.id;
+      document.getElementById('nama').value = game.nama;
+      document.getElementById('platform').value = game.platform;
+      document.getElementById('genre').value = game.genre;
+      document.getElementById('ukuran').value = game.ukuran;
+      document.getElementById('cover').value = game.cover;
+      document.getElementById('previewCover').src = game.cover;
+
+      document.getElementById('formTitle').innerText = 'Edit Data Game';
+      document.getElementById('editBadge').classList.remove('hidden');
+      document.getElementById('formCard').classList.add('border-amber-500/50');
+      document.getElementById('btnCancelEdit').classList.remove('hidden');
+
+      const btn = document.getElementById('btnSubmit');
+      btn.innerText = '💾 Update Perubahan';
+      btn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+      btn.classList.add('bg-amber-600', 'hover:bg-amber-500');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Keluar dari Mode Edit
+    function cancelEdit() {
+      document.getElementById('gameForm').reset();
+      document.getElementById('editId').value = '';
+      document.getElementById('searchGameInput').value = '';
+      document.getElementById('searchResults').classList.add('hidden');
+      document.getElementById('previewCover').src = 'https://placehold.co/300x400/1e293b/94a3b8?text=Cover+Otomatis';
+
+      document.getElementById('formTitle').innerText = 'Tambah Game Baru';
+      document.getElementById('editBadge').classList.add('hidden');
+      document.getElementById('formCard').classList.remove('border-amber-500/50');
+      document.getElementById('btnCancelEdit').classList.add('hidden');
+
+      const btn = document.getElementById('btnSubmit');
+      btn.innerText = '+ Simpan Game ke Katalog';
+      btn.classList.remove('bg-amber-600', 'hover:bg-amber-500');
+      btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+    }
+
+    document.getElementById('gameForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const secret = getSecret();
+      if (!secret) return;
+
+      const editId = document.getElementById('editId').value;
+      const isEditing = editId !== '';
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.innerText = isEditing ? 'Menyimpan perubahan...' : 'Menyimpan...';
+
+      const payload = {
+        secret: secret,
+        action: isEditing ? 'edit' : 'add',
+        id: editId,
+        nama: document.getElementById('nama').value,
+        platform: document.getElementById('platform').value,
+        genre: document.getElementById('genre').value,
+        ukuran: document.getElementById('ukuran').value,
+        cover: document.getElementById('cover').value
+      };
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+
+      if (result.status === 'error') {
+        alert(result.message);
+        btn.innerText = isEditing ? '💾 Update Perubahan' : '+ Simpan Game ke Katalog';
+      } else {
+        cancelEdit();
+        loadGames();
+      }
+      
+      btn.disabled = false;
+    });
+
+    async function deleteGame(id) {
+      const secret = getSecret();
+      if (!secret) return;
+      if (!confirm('Yakin mau hapus game ini dari daftar?')) return;
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ secret: secret, action: 'delete', id: id })
+      });
+      const result = await res.json();
+      if (result.status === 'error') alert(result.message);
+      else loadGames();
+    }
+
+    loadGames();
+  </script>
+</body>
+</html>
