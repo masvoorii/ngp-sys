@@ -191,7 +191,7 @@
       return genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Action, Adventure';
     }
 
-    // Cari Game di Database Game Khusus (Steam Store HD 600x900) + Fallback Wikipedia
+    // Cari Game di Database Game Khusus (Multi-Proxy Steam Store HD 600x900) + Fallback Wikipedia
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -201,32 +201,40 @@
       btn.disabled = true;
       btn.innerText = 'Mencari di DB Game...';
 
+      const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`;
+      let steamData = null;
+
+      // Jalur 1: Coba via AllOrigins
       try {
-        const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(steamSearchUrl)}`;
-        
-        const res = await fetch(proxyUrl);
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(steamSearchUrl)}`);
         const wrapper = await res.json();
-        const steamData = JSON.parse(wrapper.contents);
-
-        if (steamData && steamData.items && steamData.items.length > 0) {
-          const items = steamData.items.slice(0, 6);
-          foundGamesCache = items.map(item => ({
-            source: 'steam',
-            id: item.id,
-            title: item.name,
-            cover: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.id}/library_600x900.jpg`,
-            fallbackCover: item.tiny_image,
-            genre: 'Memuat genre...'
-          }));
-
-          selectFetchedGame(0);
-          resultsDiv.classList.remove('hidden');
-          renderSearchResults();
-        } else {
-          await fetchFromWikipediaFallback(query);
+        steamData = JSON.parse(wrapper.contents);
+      } catch (e) {
+        // Jalur 2: Cadangan via CorsProxy.io jika AllOrigins gagal
+        try {
+          const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(steamSearchUrl)}`);
+          steamData = await res2.json();
+        } catch (e2) {
+          steamData = null;
         }
-      } catch (err) {
+      }
+
+      if (steamData && steamData.items && steamData.items.length > 0) {
+        const items = steamData.items.slice(0, 6);
+        foundGamesCache = items.map(item => ({
+          source: 'steam',
+          id: item.id,
+          title: item.name,
+          cover: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.id}/library_600x900.jpg`,
+          fallbackCover: item.tiny_image,
+          genre: 'Memuat genre...'
+        }));
+
+        selectFetchedGame(0);
+        resultsDiv.classList.remove('hidden');
+        renderSearchResults();
+      } else {
+        // Jalur 3: Fallback Wikipedia yang sudah diperbaiki urutannya
         await fetchFromWikipediaFallback(query);
       }
 
@@ -289,7 +297,8 @@
 
     async function fetchFromWikipediaFallback(query) {
       const resultsDiv = document.getElementById('searchResults');
-      const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query + ' video game')}&gsrlimit=5&prop=pageimages|extracts&pilicense=any&exintro=1&explaintext=1&exsentences=3&pithumbsize=500&format=json&origin=*`;
+      // Tanpa imbuhan 'video game' & gsrlimit=8 agar judul utama seperti GTA V muncul di urutan #1
+      const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=8&prop=pageimages|extracts&pilicense=any&exintro=1&explaintext=1&exsentences=3&pithumbsize=500&format=json&origin=*`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -301,6 +310,8 @@
 
       foundGamesCache = Object.values(data.query.pages)
         .sort((a, b) => a.index - b.index)
+        .filter(g => !g.title.toLowerCase().includes('album') && !g.title.toLowerCase().includes('soundtrack'))
+        .slice(0, 6)
         .map(g => ({
           source: 'wiki',
           title: g.title.replace(/\s*\(.*?\)\s*/g, ''),
