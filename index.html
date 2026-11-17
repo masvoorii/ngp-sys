@@ -187,7 +187,7 @@
       return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-// Prioritas 1: Poster Bersih Wikipedia/Wikidata -> Prioritas 2: Plain Vertical Poster (Tanpa Bingkai Konsol)
+    // Prioritas 1: Poster Bersih Wikipedia/Wikidata -> Prioritas 2: Plain Vertical Poster (Tanpa Bingkai Konsol)
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -246,7 +246,7 @@
             } catch (e) {}
           }
 
-          // 2. Cadangan jika Wikipedia kosong: tarik poster digital polos (Steam Grid) tanpa kaset fisik
+          // 2. Cadangan jika Wikipedia kosong: tarik poster digital polos (SteamGrid) tanpa kaset fisik
           if (!coverUrl) {
             coverUrl = `https://tse2.mm.bing.net/th?q=${encodeURIComponent(g.label + ' steamgrid vertical cover')}&w=450&h=600&c=7&rs=1&p=0`;
           }
@@ -272,6 +272,31 @@
 
       btn.disabled = false;
       btn.innerText = '🔍 Cari Cover & Info';
+    }
+
+    function renderSearchResults() {
+      const resultsDiv = document.getElementById('searchResults');
+      resultsDiv.innerHTML = foundGamesCache.map((g, idx) => `
+        <button type="button" onclick="selectFetchedGame(${idx})" 
+          class="flex items-center gap-2.5 bg-slate-900 hover:bg-slate-700 border border-slate-700 p-2 rounded-lg text-left transition">
+          <img src="${g.cover}" onerror="this.src='https://placehold.co/100x140/1e293b/94a3b8?text=No+Img'" 
+            class="w-10 h-14 object-fill rounded bg-slate-800 shrink-0">
+          <div class="overflow-hidden">
+            <p class="text-xs font-semibold truncate text-slate-200">${g.title}</p>
+            <p class="text-[10px] text-emerald-400 truncate">${g.description}</p>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    function selectFetchedGame(index) {
+      const game = foundGamesCache[index];
+      if (!game) return;
+
+      document.getElementById('nama').value = game.title;
+      document.getElementById('cover').value = game.cover;
+      document.getElementById('genre').value = detectGenre(game.title + ' ' + game.description);
+      document.getElementById('previewCover').src = game.cover;
     }
 
     // Muat Data Games & Platforms sekaligus
