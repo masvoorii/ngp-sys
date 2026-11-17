@@ -187,7 +187,7 @@
       return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-// Cari Game langsung ke OpenCritic Game Database (Tanpa API Key, Super Cepat, Cover Vertikal Lengkap)
+// Kombinasi Wikidata (Filter Khusus Video Game) + Direct Cover Art HD
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -198,60 +198,46 @@
       btn.innerText = 'Mencari...';
 
       try {
-        // 1. Cari game di OpenCritic API (mendukung CORS langsung dari browser)
-        const searchUrl = `https://api.opencritic.com/api/meta/search?criteria=${encodeURIComponent(query)}`;
+        const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&limit=10&format=json&origin=*`;
         const res = await fetch(searchUrl);
-        const items = await res.json();
+        const data = await res.json();
 
-        // Filter hanya yang bertipe 'game' (bukan critic/outlet)
-        const gamesOnly = (items || []).filter(item => item.relation === 'game').slice(0, 6);
-
-        if (gamesOnly.length === 0) {
-          alert('Game tidak ditemukan. Coba ketik judul yang lebih singkat (misal: "Naruto Storm Connections").');
-          resultsDiv.classList.add('hidden');
-        } else {
-          // 2. Ambil detail cover box art & genre resmi untuk masing-masing hasil secara paralel
-          foundGamesCache = await Promise.all(gamesOnly.map(async (g) => {
-            try {
-              const detailRes = await fetch(`https://api.opencritic.com/api/game/${g.id}`);
-              const detail = await detailRes.json();
-
-              // Ambil poster box art vertikal (box.og) atau banner (banner.og)
-              const boxPath = detail.images?.box?.og || detail.images?.banner?.og || '';
-              const coverUrl = boxPath 
-                ? (boxPath.startsWith('http') ? boxPath : `https://img.opencritic.com/${boxPath}`)
-                : 'https://placehold.co/300x400/1e293b/94a3b8?text=No+Cover';
-
-              const genres = (detail.Genres && detail.Genres.length > 0)
-                ? detail.Genres.map(gen => gen.name).slice(0, 3).join(', ')
-                : detectGenre(g.name);
-
-              const year = detail.firstReleaseDate ? new Date(detail.firstReleaseDate).getFullYear() : '';
-
-              return {
-                id: g.id,
-                title: detail.name || g.name,
-                released: year,
-                cover: coverUrl,
-                genre: genres
-              };
-            } catch (e) {
-              return {
-                id: g.id,
-                title: g.name,
-                released: '',
-                cover: 'https://placehold.co/300x400/1e293b/94a3b8?text=No+Cover',
-                genre: detectGenre(g.name)
-              };
-            }
-          }));
-
-          selectFetchedGame(0);
-          resultsDiv.classList.remove('hidden');
-          renderSearchResults();
+        let gameEntities = [];
+        if (data.search && data.search.length > 0) {
+          gameEntities = data.search.filter(item => {
+            const desc = (item.description || '').toLowerCase();
+            return desc.includes('game') || desc.includes('playstation') || desc.includes('xbox') || desc.includes('nintendo');
+          });
+          if (gameEntities.length === 0) gameEntities = data.search;
+          gameEntities = gameEntities.slice(0, 6);
         }
+
+        // Jika di Wikidata belum tercatat (misal game baru/edisi khusus), tetap buatkan opsi dari query
+        if (gameEntities.length === 0) {
+          gameEntities = [{ id: 'custom', label: query, description: 'Video Game' }];
+        }
+
+        foundGamesCache = gameEntities.map(g => {
+          // Tarik Box Art vertikal HD otomatis sesuai judul game
+          const autoCover = `https://tse2.mm.bing.net/th?q=${encodeURIComponent(g.label + ' video game box art cover')}&w=450&h=600&c=7&rs=1&p=0`;
+          return {
+            id: g.id,
+            title: g.label,
+            description: g.description || 'Video Game',
+            cover: autoCover
+          };
+        });
+
+        selectFetchedGame(0);
+        resultsDiv.classList.remove('hidden');
+        renderSearchResults();
       } catch (err) {
-        alert('Gagal terhubung ke database pencarian. Periksa koneksi internet kamu.');
+        // Fallback darurat jika jaringan ke Wikidata terganggu
+        const autoCover = `https://tse2.mm.bing.net/th?q=${encodeURIComponent(query + ' video game box art cover')}&w=450&h=600&c=7&rs=1&p=0`;
+        foundGamesCache = [{ id: 'custom', title: query, description: 'Video Game', cover: autoCover }];
+        selectFetchedGame(0);
+        resultsDiv.classList.remove('hidden');
+        renderSearchResults();
       }
 
       btn.disabled = false;
@@ -267,7 +253,7 @@
             class="w-10 h-14 object-fill rounded bg-slate-800 shrink-0">
           <div class="overflow-hidden">
             <p class="text-xs font-semibold truncate text-slate-200">${g.title}</p>
-            <p class="text-[10px] text-emerald-400 truncate">${g.released ? g.released + ' • ' : ''}${g.genre}</p>
+            <p class="text-[10px] text-emerald-400 truncate">${g.description}</p>
           </div>
         </button>
       `).join('');
@@ -279,7 +265,7 @@
 
       document.getElementById('nama').value = game.title;
       document.getElementById('cover').value = game.cover;
-      document.getElementById('genre').value = game.genre;
+      document.getElementById('genre').value = detectGenre(game.title + ' ' + game.description);
       document.getElementById('previewCover').src = game.cover;
     }
 
