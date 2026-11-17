@@ -187,7 +187,7 @@
       return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-    // Cari Game langsung lewat Server Apps Script (Wikidata Entity + Cover Box Art Resmi)
+// Cari Game langsung lewat Wikidata API dari Browser (100% Bebas CORS, Tanpa Proxy, Super Cepat)
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -198,20 +198,64 @@
       btn.innerText = 'Mencari...';
 
       try {
-        const res = await fetch(`${API_URL}?action=searchGame&q=${encodeURIComponent(query)}`);
-        const items = await res.json();
+        // 1. Cari entitas langsung ke Wikidata (mendukung origin=* langsung dari browser)
+        const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&limit=10&format=json&origin=*`;
+        const res = await fetch(searchUrl);
+        const data = await res.json();
 
-        if (!items || !Array.isArray(items) || items.length === 0) {
-          alert('Game tidak ditemukan. Coba ketik judul resmi bahasa Inggris (misal: "Grand Theft Auto V").');
+        if (!data.search || data.search.length === 0) {
+          alert('Game tidak ditemukan. Coba periksa ejaan judul bahasa Inggrisnya.');
           resultsDiv.classList.add('hidden');
         } else {
-          foundGamesCache = items;
+          // Saring khusus entitas video game
+          let gameEntities = data.search.filter(item => {
+            const desc = (item.description || '').toLowerCase();
+            return desc.includes('game') || desc.includes('playstation') || desc.includes('xbox') || desc.includes('nintendo');
+          });
+          if (gameEntities.length === 0) gameEntities = data.search;
+          gameEntities = gameEntities.slice(0, 6);
+
+          // 2. Ambil sitelink Wikipedia Inggris untuk menarik gambar Box Art resmi
+          const ids = gameEntities.map(g => g.id).join('|');
+          const detailUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${ids}&props=labels|claims|sitelinks&sitefilter=enwiki&languages=en&format=json&origin=*`;
+          const detailRes = await fetch(detailUrl);
+          const detailData = await detailRes.json();
+
+          // 3. Tarik gambar cover resmi masing-masing game secara paralel
+          foundGamesCache = await Promise.all(gameEntities.map(async (g) => {
+            const entity = detailData.entities[g.id];
+            let coverUrl = 'https://placehold.co/300x400/1e293b/94a3b8?text=No+Cover';
+            const wikiTitle = entity?.sitelinks?.enwiki?.title || g.label;
+
+            if (entity?.claims?.P18?.[0]) {
+              const fileName = entity.claims.P18[0].mainsnak.datavalue.value;
+              coverUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=500`;
+            } else if (wikiTitle) {
+              try {
+                const wpUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pilicense=any&pithumbsize=500&format=json&origin=*`;
+                const wpRes = await fetch(wpUrl);
+                const wpData = await wpRes.json();
+                const pages = wpData.query?.pages ? Object.values(wpData.query.pages) : [];
+                if (pages.length > 0 && pages[0].thumbnail) {
+                  coverUrl = pages[0].thumbnail.source;
+                }
+              } catch (e) {}
+            }
+
+            return {
+              id: g.id,
+              title: g.label,
+              description: g.description || 'Video Game',
+              cover: coverUrl
+            };
+          }));
+
           selectFetchedGame(0);
           resultsDiv.classList.remove('hidden');
           renderSearchResults();
         }
       } catch (err) {
-        alert('Gagal terhubung ke server pencarian. Pastikan Apps Script sudah di-Deploy Versi Baru.');
+        alert('Gagal mencari data: ' + err.message);
       }
 
       btn.disabled = false;
@@ -227,7 +271,7 @@
             class="w-10 h-14 object-fill rounded bg-slate-800 shrink-0">
           <div class="overflow-hidden">
             <p class="text-xs font-semibold truncate text-slate-200">${g.title}</p>
-            <p class="text-[10px] text-slate-400 truncate">${g.description || 'Video Game'}</p>
+            <p class="text-[10px] text-slate-400 truncate">${g.description}</p>
           </div>
         </button>
       `).join('');
@@ -239,10 +283,8 @@
 
       document.getElementById('nama').value = game.title;
       document.getElementById('cover').value = game.cover;
-      document.getElementById('genre').value = detectGenre(game.title + ' ' + (game.description || ''));
-
-      const previewImg = document.getElementById('previewCover');
-      previewImg.src = game.cover;
+      document.getElementById('genre').value = detectGenre(game.title + ' ' + game.description);
+      document.getElementById('previewCover').src = game.cover;
     }
 
     // Muat Data Games & Platforms sekaligus
