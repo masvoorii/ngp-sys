@@ -59,7 +59,8 @@
       <div class="mb-5">
         <label class="block text-sm text-slate-300 mb-1.5 font-medium">1. Ketik Nama Game & Tarik Cover Otomatis</label>
         <div class="flex gap-2">
-          <input type="text" id="searchGameInput" placeholder="Contoh: Grand Theft Auto V"
+          <input type="text" id="searchGameInput" placeholder="Contoh: Naruto x Boruto Ultimate Ninja Storm Connections"
+            onkeydown="if(event.key === 'Enter'){ event.preventDefault(); fetchGameInfo(); }"
             class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500">
           <button type="button" onclick="fetchGameInfo()" id="btnFetch"
             class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-lg transition whitespace-nowrap">
@@ -190,6 +191,7 @@
       return genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Action, Adventure';
     }
 
+    // Cari Game di Database Game Khusus (Steam Store HD 600x900) + Fallback Wikipedia
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -197,54 +199,118 @@
       const btn = document.getElementById('btnFetch');
       const resultsDiv = document.getElementById('searchResults');
       btn.disabled = true;
-      btn.innerText = 'Mencari...';
+      btn.innerText = 'Mencari di DB Game...';
 
       try {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=6&prop=pageimages|extracts&pilicense=any&exintro=1&explaintext=1&exsentences=3&pithumbsize=500&format=json&origin=*`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(steamSearchUrl)}`;
         
-        if (!data.query || !data.query.pages) {
-          alert('Game tidak ditemukan. Coba ketik judul bahasa Inggris yang lebih spesifik.');
-          resultsDiv.classList.add('hidden');
-        } else {
-          foundGamesCache = Object.values(data.query.pages)
-            .sort((a, b) => a.index - b.index)
-            .filter(g => !g.title.toLowerCase().includes('album') && !g.title.toLowerCase().includes('soundtrack'));
+        const res = await fetch(proxyUrl);
+        const wrapper = await res.json();
+        const steamData = JSON.parse(wrapper.contents);
+
+        if (steamData && steamData.items && steamData.items.length > 0) {
+          const items = steamData.items.slice(0, 6);
+          foundGamesCache = items.map(item => ({
+            source: 'steam',
+            id: item.id,
+            title: item.name,
+            cover: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.id}/library_600x900.jpg`,
+            fallbackCover: item.tiny_image,
+            genre: 'Memuat genre...'
+          }));
 
           selectFetchedGame(0);
           resultsDiv.classList.remove('hidden');
-          resultsDiv.innerHTML = foundGamesCache.map((g, idx) => `
-            <button type="button" onclick="selectFetchedGame(${idx})" 
-              class="flex items-center gap-2 bg-slate-900 hover:bg-slate-700 border border-slate-700 p-2 rounded-lg text-left transition">
-              <img src="${g.thumbnail ? g.thumbnail.source : 'https://placehold.co/100x140/1e293b/94a3b8?text=No+Img'}" class="w-10 h-12 object-cover rounded bg-slate-800">
-              <div class="overflow-hidden">
-                <p class="text-xs font-semibold truncate text-slate-200">${g.title.replace(/\s*\(.*?\)\s*/g, '')}</p>
-                <p class="text-[10px] text-slate-400 truncate">${detectGenre(g.extract || '')}</p>
-              </div>
-            </button>
-          `).join('');
+          renderSearchResults();
+        } else {
+          await fetchFromWikipediaFallback(query);
         }
       } catch (err) {
-        alert('Gagal mencari data. Periksa koneksi internet.');
+        await fetchFromWikipediaFallback(query);
       }
 
       btn.disabled = false;
       btn.innerText = '🔍 Cari Cover & Info';
     }
 
-    function selectFetchedGame(index) {
+    function renderSearchResults() {
+      const resultsDiv = document.getElementById('searchResults');
+      resultsDiv.innerHTML = foundGamesCache.map((g, idx) => `
+        <button type="button" onclick="selectFetchedGame(${idx})" 
+          class="flex items-center gap-2.5 bg-slate-900 hover:bg-slate-700 border border-slate-700 p-2 rounded-lg text-left transition">
+          <img src="${g.cover}" onerror="this.src='${g.fallbackCover || 'https://placehold.co/100x140?text=No+Img'}'" 
+            class="w-10 h-14 object-fill rounded bg-slate-800 shrink-0">
+          <div class="overflow-hidden">
+            <p class="text-xs font-semibold truncate text-slate-200">${g.title}</p>
+            <p class="text-[10px] text-emerald-400 truncate">${g.source === 'steam' ? 'Official Game DB' : 'Archive DB'}</p>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    async function selectFetchedGame(index) {
       const game = foundGamesCache[index];
       if (!game) return;
 
-      const cleanTitle = game.title.replace(/\s*\(.*?\)\s*/g, '');
-      const coverUrl = game.thumbnail ? game.thumbnail.source : 'https://placehold.co/300x400?text=No+Cover';
-      const detectedGenre = detectGenre(game.extract || '');
+      document.getElementById('nama').value = game.title;
+      document.getElementById('cover').value = game.cover;
+      const previewImg = document.getElementById('previewCover');
+      previewImg.src = game.cover;
 
-      document.getElementById('nama').value = cleanTitle;
-      document.getElementById('genre').value = detectedGenre;
-      document.getElementById('cover').value = coverUrl;
-      document.getElementById('previewCover').src = coverUrl;
+      previewImg.onerror = function() {
+        if (game.fallbackCover && this.src !== game.fallbackCover) {
+          this.src = game.fallbackCover;
+          document.getElementById('cover').value = game.fallbackCover;
+        }
+      };
+
+      if (game.source === 'steam') {
+        document.getElementById('genre').value = 'Mengambil genre...';
+        try {
+          const detailUrl = `https://store.steampowered.com/api/appdetails?appids=${game.id}&l=english`;
+          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(detailUrl)}`);
+          const wrapper = await res.json();
+          const detailData = JSON.parse(wrapper.contents);
+          const info = detailData[game.id]?.data;
+          if (info && info.genres) {
+            const officialGenres = info.genres.map(g => g.description).slice(0, 3).join(', ');
+            document.getElementById('genre').value = officialGenres;
+          } else {
+            document.getElementById('genre').value = 'Action, Adventure';
+          }
+        } catch (e) {
+          document.getElementById('genre').value = 'Action, Adventure';
+        }
+      } else {
+        document.getElementById('genre').value = game.genre;
+      }
+    }
+
+    async function fetchFromWikipediaFallback(query) {
+      const resultsDiv = document.getElementById('searchResults');
+      const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query + ' video game')}&gsrlimit=5&prop=pageimages|extracts&pilicense=any&exintro=1&explaintext=1&exsentences=3&pithumbsize=500&format=json&origin=*`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data.query || !data.query.pages) {
+        alert('Game tidak ditemukan di database.');
+        resultsDiv.classList.add('hidden');
+        return;
+      }
+
+      foundGamesCache = Object.values(data.query.pages)
+        .sort((a, b) => a.index - b.index)
+        .map(g => ({
+          source: 'wiki',
+          title: g.title.replace(/\s*\(.*?\)\s*/g, ''),
+          cover: g.thumbnail ? g.thumbnail.source : 'https://placehold.co/300x400?text=No+Cover',
+          genre: detectGenre(g.extract || '')
+        }));
+
+      selectFetchedGame(0);
+      resultsDiv.classList.remove('hidden');
+      renderSearchResults();
     }
 
     // Muat Data Games & Platforms sekaligus
@@ -268,7 +334,7 @@
 
         tbody.innerHTML = savedGamesList.map(g => `
           <tr class="hover:bg-slate-700/30">
-            <td class="p-3"><img src="${g.cover}" class="w-10 h-14 object-cover rounded bg-slate-700" onerror="this.src='https://placehold.co/100x140?text=No+Cover'"></td>
+            <td class="p-3"><img src="${g.cover}" class="w-10 h-14 object-fill rounded bg-slate-700" onerror="this.src='https://placehold.co/100x140?text=No+Cover'"></td>
             <td class="p-3 font-medium">${g.nama}</td>
             <td class="p-3"><span class="px-2 py-0.5 text-xs rounded bg-blue-500/20 text-blue-300 font-semibold">${g.platform}</span></td>
             <td class="p-3 text-slate-300">${g.genre}</td>
@@ -284,7 +350,6 @@
       }
     }
 
-    // Render Chips & Dropdown Platform Dinamis
     function renderPlatforms() {
       const chipsDiv = document.getElementById('platformChips');
       const selectEl = document.getElementById('platform');
@@ -357,7 +422,6 @@
       document.getElementById('editId').value = game.id;
       document.getElementById('nama').value = game.nama;
       
-      // Jika platform game lama sempat dihapus dari daftar, tambahkan sementara ke dropdown agar tetap terpilih
       const selectEl = document.getElementById('platform');
       if (!availablePlatforms.includes(game.platform)) {
         selectEl.innerHTML += `<option value="${game.platform}">${game.platform}</option>`;
