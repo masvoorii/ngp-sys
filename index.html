@@ -3,22 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - Input & Edit Data Game</title>
+  <title>Admin - Nathan Game Palembang</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
 
   <div class="max-w-4xl mx-auto">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-slate-700 pb-4">
-      <div>
-        <h1 class="text-2xl font-bold text-blue-400">Admin Database Game</h1>
-        <p class="text-sm text-slate-400">Dilindungi Secret Key • Google Sheets</p>
+    <!-- Header dengan Logo Toko -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-700 pb-4">
+      <div class="flex items-center gap-3">
+        <img id="adminLogo" src="" alt="Logo" onerror="this.style.display='none'"
+          class="w-11 h-11 rounded-xl object-cover bg-slate-800 border border-slate-700">
+        <div>
+          <h1 class="text-xl font-bold text-blue-400">Nathan Game Palembang</h1>
+          <p class="text-xs text-slate-400">Panel Admin Database & Platform</p>
+        </div>
       </div>
       <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-700">
         <span class="text-xs text-slate-400">🔑 PIN Admin:</span>
         <input type="password" id="adminSecretInput" placeholder="Masukkan password..."
           onchange="sessionStorage.setItem('ps_admin_key', this.value)"
           class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-blue-500 w-36">
+      </div>
+    </div>
+
+    <!-- Panel Kelola Platform Dinamis -->
+    <div class="bg-slate-800/80 p-5 rounded-xl shadow mb-6 border border-slate-700">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-200">Kelola Daftar Platform Konsol</h2>
+          <p class="text-xs text-slate-400">Otomatis muncul di pilihan input & filter katalog user</p>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="newPlatformInput" placeholder="Misal: Nintendo Switch"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 w-44">
+          <button type="button" onclick="addPlatform()" id="btnAddPlat"
+            class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition whitespace-nowrap">
+            + Tambah
+          </button>
+        </div>
+      </div>
+      <div id="platformChips" class="flex flex-wrap gap-2 pt-2 border-t border-slate-700/70">
+        <span class="text-xs text-slate-500">Memuat platform...</span>
       </div>
     </div>
 
@@ -62,10 +88,7 @@
           <label class="block text-xs text-slate-400 mb-1">Pilih Platform</label>
           <select id="platform" required
             class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-            <option value="PS4">PS4</option>
-            <option value="PS5">PS5</option>
-            <option value="PS3">PS3</option>
-            <option value="PS2">PS2</option>
+            <option value="">Memuat...</option>
           </select>
         </div>
 
@@ -105,7 +128,7 @@
     <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
       <div class="p-4 border-b border-slate-700 flex justify-between items-center">
         <h2 class="font-semibold">Daftar Game Tersimpan (<span id="totalCount">0</span>)</h2>
-        <button onclick="loadGames()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded">Refresh Data</button>
+        <button onclick="loadData()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded">Refresh Data</button>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -128,9 +151,14 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycby0Zg_fWuHMLJ-wPvpr-JiVuohn8moT6blKVr32uzGRrngAk0IGZpp8WUllovHrfCc9/exec";
+    const API_URL = "PASTE_URL_APPS_SCRIPT_KAMU_DISINI";
+    const LOGO_URL = "https://lh3.googleusercontent.com/d/PASTE_ID_FILE_GDRIVE_KAMU_DISINI";
+
+    document.getElementById('adminLogo').src = LOGO_URL;
+
     let foundGamesCache = [];
     let savedGamesList = [];
+    let availablePlatforms = [];
 
     const savedKey = sessionStorage.getItem('ps_admin_key');
     if (savedKey) document.getElementById('adminSecretInput').value = savedKey;
@@ -219,15 +247,20 @@
       document.getElementById('previewCover').src = coverUrl;
     }
 
-    async function loadGames() {
+    // Muat Data Games & Platforms sekaligus
+    async function loadData() {
       const tbody = document.getElementById('gameTableBody');
       tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Memuat data...</td></tr>';
       try {
         const res = await fetch(API_URL);
-        const games = await res.json();
-        savedGamesList = games.reverse();
-        document.getElementById('totalCount').innerText = savedGamesList.length;
+        const data = await res.json();
+        
+        savedGamesList = (data.games || []).reverse();
+        availablePlatforms = data.platforms || [];
 
+        renderPlatforms();
+
+        document.getElementById('totalCount').innerText = savedGamesList.length;
         if (savedGamesList.length === 0) {
           tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada data game.</td></tr>';
           return;
@@ -251,14 +284,86 @@
       }
     }
 
-    // Masuk ke Mode Edit
+    // Render Chips & Dropdown Platform Dinamis
+    function renderPlatforms() {
+      const chipsDiv = document.getElementById('platformChips');
+      const selectEl = document.getElementById('platform');
+      const currentSelected = selectEl.value;
+
+      if (availablePlatforms.length === 0) {
+        chipsDiv.innerHTML = '<span class="text-xs text-amber-400">Belum ada platform. Tambahkan di atas!</span>';
+        selectEl.innerHTML = '<option value="">-- Tambah platform dulu --</option>';
+        return;
+      }
+
+      chipsDiv.innerHTML = availablePlatforms.map(p => `
+        <span class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-xs font-medium text-slate-200">
+          ${p}
+          <button type="button" onclick="deletePlatform('${p}')" title="Hapus platform ${p}"
+            class="text-slate-400 hover:text-red-400 font-bold ml-1">&times;</button>
+        </span>
+      `).join('');
+
+      selectEl.innerHTML = availablePlatforms.map(p => `<option value="${p}">${p}</option>`).join('');
+      if (availablePlatforms.includes(currentSelected)) {
+        selectEl.value = currentSelected;
+      }
+    }
+
+    async function addPlatform() {
+      const secret = getSecret();
+      if (!secret) return;
+      const input = document.getElementById('newPlatformInput');
+      const platName = input.value.trim();
+      if (!platName) return alert('Ketik nama platform baru terlebih dahulu!');
+
+      const btn = document.getElementById('btnAddPlat');
+      btn.disabled = true;
+      btn.innerText = '...';
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ secret: secret, action: 'addPlatform', platformName: platName })
+      });
+      const result = await res.json();
+      if (result.status === 'error') {
+        alert(result.message);
+      } else {
+        input.value = '';
+        await loadData();
+      }
+      btn.disabled = false;
+      btn.innerText = '+ Tambah';
+    }
+
+    async function deletePlatform(platName) {
+      const secret = getSecret();
+      if (!secret) return;
+      if (!confirm(`Hapus platform "${platName}" dari daftar pilihan? (Game lama dengan label ini tetap aman di database)`)) return;
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ secret: secret, action: 'deletePlatform', platformName: platName })
+      });
+      const result = await res.json();
+      if (result.status === 'error') alert(result.message);
+      else loadData();
+    }
+
     function startEdit(id) {
       const game = savedGamesList.find(item => item.id == id);
       if (!game) return;
 
       document.getElementById('editId').value = game.id;
       document.getElementById('nama').value = game.nama;
-      document.getElementById('platform').value = game.platform;
+      
+      // Jika platform game lama sempat dihapus dari daftar, tambahkan sementara ke dropdown agar tetap terpilih
+      const selectEl = document.getElementById('platform');
+      if (!availablePlatforms.includes(game.platform)) {
+        selectEl.innerHTML += `<option value="${game.platform}">${game.platform}</option>`;
+      }
+      selectEl.value = game.platform;
+
       document.getElementById('genre').value = game.genre;
       document.getElementById('ukuran').value = game.ukuran;
       document.getElementById('cover').value = game.cover;
@@ -277,7 +382,6 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Keluar dari Mode Edit
     function cancelEdit() {
       document.getElementById('gameForm').reset();
       document.getElementById('editId').value = '';
@@ -294,6 +398,7 @@
       btn.innerText = '+ Simpan Game ke Katalog';
       btn.classList.remove('bg-amber-600', 'hover:bg-amber-500');
       btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+      renderPlatforms();
     }
 
     document.getElementById('gameForm').addEventListener('submit', async (e) => {
@@ -329,7 +434,7 @@
         btn.innerText = isEditing ? '💾 Update Perubahan' : '+ Simpan Game ke Katalog';
       } else {
         cancelEdit();
-        loadGames();
+        loadData();
       }
       
       btn.disabled = false;
@@ -346,10 +451,10 @@
       });
       const result = await res.json();
       if (result.status === 'error') alert(result.message);
-      else loadGames();
+      else loadData();
     }
 
-    loadGames();
+    loadData();
   </script>
 </body>
 </html>
