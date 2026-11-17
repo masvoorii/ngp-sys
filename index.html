@@ -59,7 +59,7 @@
       <div class="mb-5">
         <label class="block text-sm text-slate-300 mb-1.5 font-medium">1. Ketik Nama Game & Tarik Cover Otomatis</label>
         <div class="flex gap-2">
-          <input type="text" id="searchGameInput" placeholder="Contoh: Naruto x Boruto Ultimate Ninja Storm Connections"
+          <input type="text" id="searchGameInput" placeholder="Contoh: Naruto Storm Connections"
             onkeydown="if(event.key === 'Enter'){ event.preventDefault(); fetchGameInfo(); }"
             class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500">
           <button type="button" onclick="fetchGameInfo()" id="btnFetch"
@@ -177,21 +177,17 @@
     function detectGenre(text) {
       const t = text.toLowerCase();
       const genres = [];
-      if (t.includes('action')) genres.push('Action');
-      if (t.includes('adventure')) genres.push('Adventure');
-      if (t.includes('role-playing') || t.includes('rpg')) genres.push('RPG');
-      if (t.includes('fighting')) genres.push('Fighting');
-      if (t.includes('shooter') || t.includes('first-person') || t.includes('third-person')) genres.push('Shooter');
-      if (t.includes('racing')) genres.push('Racing');
-      if (t.includes('sports') || t.includes('football') || t.includes('soccer') || t.includes('basketball')) genres.push('Sports');
-      if (t.includes('horror') || t.includes('survival')) genres.push('Survival Horror');
-      if (t.includes('open world')) genres.push('Open World');
-      if (t.includes('simulation')) genres.push('Simulation');
-      if (t.includes('hack and slash')) genres.push('Hack and Slash');
-      return genres.length > 0 ? genres.slice(0, 3).join(', ') : 'Action, Adventure';
+      if (t.includes('naruto') || t.includes('tekken') || t.includes('street fighter') || t.includes('mortal kombat') || t.includes('dragon ball') || t.includes('fighting')) genres.push('Fighting');
+      if (t.includes('fifa') || t.includes('fc 2') || t.includes('efootball') || t.includes('pes') || t.includes('nba') || t.includes('wwe') || t.includes('sports')) genres.push('Sports');
+      if (t.includes('need for speed') || t.includes('gran turismo') || t.includes('forza') || t.includes('motogp') || t.includes('racing')) genres.push('Racing');
+      if (t.includes('resident evil') || t.includes('silent hill') || t.includes('outlast') || t.includes('horror')) genres.push('Survival Horror');
+      if (t.includes('final fantasy') || t.includes('persona') || t.includes('witcher') || t.includes('elden ring') || t.includes('rpg')) genres.push('RPG');
+      if (t.includes('call of duty') || t.includes('battlefield') || t.includes('sniper') || t.includes('shooter')) genres.push('Shooter');
+      if (t.includes('grand theft auto') || t.includes('red dead') || t.includes('spider-man') || t.includes('assassin')) genres.push('Action, Open World');
+      return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-    // Cari Game di Database Game Khusus (Multi-Proxy Steam Store HD 600x900) + Fallback Wikipedia
+    // Cari Game langsung lewat Server Apps Script (Super Cepat & Tanpa Proxy Lemot)
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -199,43 +195,23 @@
       const btn = document.getElementById('btnFetch');
       const resultsDiv = document.getElementById('searchResults');
       btn.disabled = true;
-      btn.innerText = 'Mencari di DB Game...';
+      btn.innerText = 'Mencari...';
 
-      const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`;
-      let steamData = null;
-
-      // Jalur 1: Coba via AllOrigins
       try {
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(steamSearchUrl)}`);
-        const wrapper = await res.json();
-        steamData = JSON.parse(wrapper.contents);
-      } catch (e) {
-        // Jalur 2: Cadangan via CorsProxy.io jika AllOrigins gagal
-        try {
-          const res2 = await fetch(`https://corsproxy.io/?${encodeURIComponent(steamSearchUrl)}`);
-          steamData = await res2.json();
-        } catch (e2) {
-          steamData = null;
+        const res = await fetch(`${API_URL}?action=searchGame&q=${encodeURIComponent(query)}`);
+        const items = await res.json();
+
+        if (!items || items.length === 0) {
+          alert('Game tidak ditemukan. Coba ketik judul yang lebih singkat (misal: "Naruto Storm Connections").');
+          resultsDiv.classList.add('hidden');
+        } else {
+          foundGamesCache = items;
+          selectFetchedGame(0);
+          resultsDiv.classList.remove('hidden');
+          renderSearchResults();
         }
-      }
-
-      if (steamData && steamData.items && steamData.items.length > 0) {
-        const items = steamData.items.slice(0, 6);
-        foundGamesCache = items.map(item => ({
-          source: 'steam',
-          id: item.id,
-          title: item.name,
-          cover: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${item.id}/library_600x900.jpg`,
-          fallbackCover: item.tiny_image,
-          genre: 'Memuat genre...'
-        }));
-
-        selectFetchedGame(0);
-        resultsDiv.classList.remove('hidden');
-        renderSearchResults();
-      } else {
-        // Jalur 3: Fallback Wikipedia yang sudah diperbaiki urutannya
-        await fetchFromWikipediaFallback(query);
+      } catch (err) {
+        alert('Gagal terhubung ke server pencarian.');
       }
 
       btn.disabled = false;
@@ -251,77 +227,28 @@
             class="w-10 h-14 object-fill rounded bg-slate-800 shrink-0">
           <div class="overflow-hidden">
             <p class="text-xs font-semibold truncate text-slate-200">${g.title}</p>
-            <p class="text-[10px] text-emerald-400 truncate">${g.source === 'steam' ? 'Official Game DB' : 'Archive DB'}</p>
+            <p class="text-[10px] text-blue-400 truncate">Official Game Store DB</p>
           </div>
         </button>
       `).join('');
     }
 
-    async function selectFetchedGame(index) {
+    function selectFetchedGame(index) {
       const game = foundGamesCache[index];
       if (!game) return;
 
       document.getElementById('nama').value = game.title;
       document.getElementById('cover').value = game.cover;
+      document.getElementById('genre').value = detectGenre(game.title);
+
       const previewImg = document.getElementById('previewCover');
       previewImg.src = game.cover;
-
       previewImg.onerror = function() {
         if (game.fallbackCover && this.src !== game.fallbackCover) {
           this.src = game.fallbackCover;
           document.getElementById('cover').value = game.fallbackCover;
         }
       };
-
-      if (game.source === 'steam') {
-        document.getElementById('genre').value = 'Mengambil genre...';
-        try {
-          const detailUrl = `https://store.steampowered.com/api/appdetails?appids=${game.id}&l=english`;
-          const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(detailUrl)}`);
-          const wrapper = await res.json();
-          const detailData = JSON.parse(wrapper.contents);
-          const info = detailData[game.id]?.data;
-          if (info && info.genres) {
-            const officialGenres = info.genres.map(g => g.description).slice(0, 3).join(', ');
-            document.getElementById('genre').value = officialGenres;
-          } else {
-            document.getElementById('genre').value = 'Action, Adventure';
-          }
-        } catch (e) {
-          document.getElementById('genre').value = 'Action, Adventure';
-        }
-      } else {
-        document.getElementById('genre').value = game.genre;
-      }
-    }
-
-    async function fetchFromWikipediaFallback(query) {
-      const resultsDiv = document.getElementById('searchResults');
-      // Tanpa imbuhan 'video game' & gsrlimit=8 agar judul utama seperti GTA V muncul di urutan #1
-      const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=8&prop=pageimages|extracts&pilicense=any&exintro=1&explaintext=1&exsentences=3&pithumbsize=500&format=json&origin=*`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (!data.query || !data.query.pages) {
-        alert('Game tidak ditemukan di database.');
-        resultsDiv.classList.add('hidden');
-        return;
-      }
-
-      foundGamesCache = Object.values(data.query.pages)
-        .sort((a, b) => a.index - b.index)
-        .filter(g => !g.title.toLowerCase().includes('album') && !g.title.toLowerCase().includes('soundtrack'))
-        .slice(0, 6)
-        .map(g => ({
-          source: 'wiki',
-          title: g.title.replace(/\s*\(.*?\)\s*/g, ''),
-          cover: g.thumbnail ? g.thumbnail.source : 'https://placehold.co/300x400?text=No+Cover',
-          genre: detectGenre(g.extract || '')
-        }));
-
-      selectFetchedGame(0);
-      resultsDiv.classList.remove('hidden');
-      renderSearchResults();
     }
 
     // Muat Data Games & Platforms sekaligus
