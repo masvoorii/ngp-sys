@@ -266,7 +266,8 @@
       return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-// Tarik Cover Art Bersih dari Arsip LaunchBox Games Database (via Wikidata Entity + LaunchBox Index)
+// Prioritas 1: Poster Bersih Wikipedia/Wikidata (Akurat untuk Game Baru & Populer)
+    // Prioritas 2: Poster Digital Polos (SteamGrid) jika Wikipedia tidak memiliki gambar
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -274,10 +275,9 @@
       const btn = document.getElementById('btnFetch');
       const resultsDiv = document.getElementById('searchResults');
       btn.disabled = true;
-      btn.innerText = 'Mencari di LaunchBox...';
+      btn.innerText = 'Mencari...';
 
       try {
-        // 1. Cari entitas video game resmi di Wikidata agar judulnya baku & tidak salah sasaran
         const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=en&limit=10&format=json&origin=*`;
         const res = await fetch(searchUrl);
         const data = await res.json();
@@ -296,23 +296,55 @@
           gameEntities = [{ id: 'custom', label: query, description: 'Video Game' }];
         }
 
-        // 2. Tarik Box Art dari LaunchBox Games Database untuk setiap hasil
-        foundGamesCache = gameEntities.map(g => {
-          const lbCoverUrl = `https://tse2.mm.bing.net/th?q=${encodeURIComponent('site:gamesdb.launchbox-app.com "' + g.label + '" box front')}&w=450&h=600&c=7&rs=1&p=0`;
+        const validIds = gameEntities.filter(g => g.id !== 'custom').map(g => g.id).join('|');
+        let detailEntities = {};
+        if (validIds) {
+          const detailUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${validIds}&props=claims|sitelinks&sitefilter=enwiki&format=json&origin=*`;
+          const detailRes = await fetch(detailUrl);
+          const detailData = await detailRes.json();
+          detailEntities = detailData.entities || {};
+        }
+
+        foundGamesCache = await Promise.all(gameEntities.map(async (g) => {
+          const entity = detailEntities[g.id];
+          let coverUrl = '';
+          const wikiTitle = entity?.sitelinks?.enwiki?.title || g.label;
+
+          // 1. Cek gambar resmi di Wikidata / Wikipedia (Plain Poster Bersih)
+          if (entity?.claims?.P18?.[0]) {
+            const fileName = entity.claims.P18[0].mainsnak.datavalue.value;
+            coverUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=500`;
+          } else if (g.id !== 'custom' && wikiTitle) {
+            try {
+              const wpUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(wikiTitle)}&prop=pageimages&pilicense=any&pithumbsize=500&format=json&origin=*`;
+              const wpRes = await fetch(wpUrl);
+              const wpData = await wpRes.json();
+              const pages = wpData.query?.pages ? Object.values(wpData.query.pages) : [];
+              if (pages.length > 0 && pages[0].thumbnail) {
+                coverUrl = pages[0].thumbnail.source;
+              }
+            } catch (e) {}
+          }
+
+          // 2. Cadangan jika Wikipedia kosong: tarik poster digital polos tanpa kaset fisik
+          if (!coverUrl) {
+            coverUrl = `https://tse2.mm.bing.net/th?q=${encodeURIComponent('"' + g.label + '" steamgrid vertical cover')}&w=450&h=600&c=7&rs=1&p=0`;
+          }
+
           return {
             id: g.id,
             title: g.label,
-            description: g.description || 'LaunchBox Games DB',
-            cover: lbCoverUrl
+            description: g.description || 'Video Game',
+            cover: coverUrl
           };
-        });
+        }));
 
         selectFetchedGame(0);
         resultsDiv.classList.remove('hidden');
         renderSearchResults();
       } catch (err) {
-        const fallbackLbCover = `https://tse2.mm.bing.net/th?q=${encodeURIComponent('site:gamesdb.launchbox-app.com "' + query + '" box front')}&w=450&h=600&c=7&rs=1&p=0`;
-        foundGamesCache = [{ id: 'custom', title: query, description: 'LaunchBox Games DB', cover: fallbackLbCover }];
+        const fallbackPoster = `https://tse2.mm.bing.net/th?q=${encodeURIComponent('"' + query + '" steamgrid vertical cover')}&w=450&h=600&c=7&rs=1&p=0`;
+        foundGamesCache = [{ id: 'custom', title: query, description: 'Video Game', cover: fallbackPoster }];
         selectFetchedGame(0);
         resultsDiv.classList.remove('hidden');
         renderSearchResults();
