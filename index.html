@@ -28,7 +28,6 @@
 
   <!-- KONTEN UTAMA ADMIN -->
   <div id="adminMain" class="hidden max-w-4xl mx-auto p-4 md:p-8">
-    <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-700 pb-4">
       <div class="flex items-center gap-3">
         <img src="https://lh3.googleusercontent.com/d/1MpDNxzABV6F8dV2IeSeTfhkVSdh0wneT" alt="Logo"
@@ -98,10 +97,18 @@
       <form id="gameForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
         <input type="hidden" id="editId" value="">
 
+        <!-- Kolom Preview & Upload File Sendiri -->
         <div class="md:row-span-3 flex flex-col items-center justify-center bg-slate-900/70 rounded-lg p-3 border border-slate-700">
           <img id="previewCover" src="https://placehold.co/300x400/1e293b/94a3b8?text=Cover+Otomatis" 
-            class="w-36 h-48 object-fill rounded shadow-md mb-2">
-          <span class="text-[11px] text-slate-400 text-center">Preview Artcover</span>
+            class="w-36 h-48 object-fill rounded shadow-md mb-2.5">
+          
+          <input type="file" id="customCoverFile" accept="image/*" class="hidden" onchange="handleCoverUpload(event)">
+          <button type="button" id="btnUploadCover" onclick="document.getElementById('customCoverFile').click()"
+            class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-medium py-1.5 px-3 rounded-lg transition flex items-center justify-center gap-1.5">
+            <span>📤</span>
+            <span>Upload File Sendiri</span>
+          </button>
+          <span id="uploadStatusText" class="text-[10px] text-slate-400 text-center mt-1">JPG / PNG / WEBP</span>
         </div>
 
         <div class="md:col-span-2">
@@ -131,7 +138,7 @@
         </div>
 
         <div>
-          <label class="block text-xs text-slate-400 mb-1">URL Cover (Otomatis / Bisa Paste Manual)</label>
+          <label class="block text-xs text-slate-400 mb-1">URL Cover (Otomatis / Upload / Paste Manual)</label>
           <input type="url" id="cover" required placeholder="https://..."
             oninput="document.getElementById('previewCover').src = this.value"
             class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
@@ -150,7 +157,7 @@
       </form>
     </div>
 
-    <!-- Tabel Data Game dengan Search & Sort By Lengkap -->
+    <!-- Tabel Data Game -->
     <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
       <div class="p-4 border-b border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h2 class="font-semibold">Daftar Game Tersimpan (<span id="totalCount">0</span>)</h2>
@@ -304,6 +311,77 @@
       document.getElementById('lockScreen').classList.remove('hidden');
     }
 
+    // Kompresi ringan di browser & upload gambar langsung ke Google Drive via Apps Script
+    function handleCoverUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const btn = document.getElementById('btnUploadCover');
+      const statusText = document.getElementById('uploadStatusText');
+      btn.disabled = true;
+      statusText.innerText = 'Mengompresi & mengupload...';
+      statusText.className = 'text-[10px] text-amber-400 text-center mt-1';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = async function() {
+          // Resize proporsional (maks lebar 600px) agar upload cepat & hemat storage Drive
+          const canvas = document.createElement('canvas');
+          const maxWidth = 600;
+          const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          const base64Data = dataUrl.split(',')[1];
+
+          // Tampilkan preview lokal instan
+          document.getElementById('previewCover').src = dataUrl;
+
+          try {
+            const gameTitle = document.getElementById('nama').value.trim() || 'game_cover';
+            const cleanName = gameTitle.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() + '_' + Date.now() + '.jpg';
+
+            const res = await fetch(API_URL, {
+              method: 'POST',
+              body: JSON.stringify({
+                secret: adminPin,
+                action: 'uploadCover',
+                fileName: cleanName,
+                mimeType: 'image/jpeg',
+                base64Data: base64Data
+              })
+            });
+            const result = await res.json();
+
+            if (result.status === 'success' && result.url) {
+              document.getElementById('cover').value = result.url;
+              document.getElementById('previewCover').src = result.url;
+              statusText.innerText = '✓ Tersimpan di Google Drive';
+              statusText.className = 'text-[10px] text-emerald-400 text-center mt-1';
+            } else {
+              alert(result.message || 'Gagal mengupload gambar.');
+              statusText.innerText = 'Gagal upload';
+              statusText.className = 'text-[10px] text-red-400 text-center mt-1';
+            }
+          } catch (err) {
+            alert('Terjadi kesalahan jaringan saat upload.');
+            statusText.innerText = 'Error jaringan';
+            statusText.className = 'text-[10px] text-red-400 text-center mt-1';
+          }
+
+          btn.disabled = false;
+          event.target.value = '';
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
     async function saveWhatsApp() {
       const wa = document.getElementById('waNumberInput').value.trim();
       if (!wa) return alert('Isi nomor WhatsApp terlebih dahulu!');
@@ -440,6 +518,8 @@
       document.getElementById('cover').value = game.cover;
       document.getElementById('genre').value = detectGenre(game.title + ' ' + game.description);
       document.getElementById('previewCover').src = game.cover;
+      document.getElementById('uploadStatusText').innerText = 'JPG / PNG / WEBP';
+      document.getElementById('uploadStatusText').className = 'text-[10px] text-slate-400 text-center mt-1';
     }
 
     async function loadData() {
@@ -565,6 +645,8 @@
       document.getElementById('ukuran').value = game.ukuran;
       document.getElementById('cover').value = game.cover;
       document.getElementById('previewCover').src = game.cover;
+      document.getElementById('uploadStatusText').innerText = 'JPG / PNG / WEBP';
+      document.getElementById('uploadStatusText').className = 'text-[10px] text-slate-400 text-center mt-1';
 
       document.getElementById('formTitle').innerText = 'Edit Data Game';
       document.getElementById('editBadge').classList.remove('hidden');
@@ -584,6 +666,8 @@
       document.getElementById('searchGameInput').value = '';
       document.getElementById('searchResults').classList.add('hidden');
       document.getElementById('previewCover').src = 'https://placehold.co/300x400/1e293b/94a3b8?text=Cover+Otomatis';
+      document.getElementById('uploadStatusText').innerText = 'JPG / PNG / WEBP';
+      document.getElementById('uploadStatusText').className = 'text-[10px] text-slate-400 text-center mt-1';
 
       document.getElementById('formTitle').innerText = 'Tambah Game Baru';
       document.getElementById('editBadge').classList.add('hidden');
