@@ -8,7 +8,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
 
-  <!-- LAYAR KUNCI PIN (Muncul sebelum masuk panel) -->
+  <!-- LAYAR KUNCI PIN -->
   <div id="lockScreen" class="fixed inset-0 bg-slate-950 flex items-center justify-center p-4 z-50">
     <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-xs w-full text-center shadow-2xl">
       <img src="https://lh3.googleusercontent.com/d/1MpDNxzABV6F8dV2IeSeTfhkVSdh0wneT" alt="Logo"
@@ -26,7 +26,7 @@
     </div>
   </div>
 
-  <!-- KONTEN UTAMA ADMIN (Tersembunyi sampai PIN benar) -->
+  <!-- KONTEN UTAMA ADMIN -->
   <div id="adminMain" class="hidden max-w-4xl mx-auto p-4 md:p-8">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-700 pb-4">
@@ -45,7 +45,6 @@
 
     <!-- Pengaturan WhatsApp & Platform Konsol -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <!-- Box WhatsApp Toko -->
       <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
         <h2 class="text-sm font-semibold text-emerald-400 mb-1">📱 Nomor WhatsApp Order</h2>
         <p class="text-xs text-slate-400 mb-3">Gunakan kode negara 62 (Contoh: 6281234567890)</p>
@@ -59,7 +58,6 @@
         </div>
       </div>
 
-      <!-- Box Platform Dinamis -->
       <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
         <h2 class="text-sm font-semibold text-slate-200 mb-1">🎮 Daftar Platform Konsol</h2>
         <div class="flex gap-2 mb-2.5">
@@ -83,7 +81,6 @@
         <span id="editBadge" class="hidden px-2.5 py-1 rounded text-xs bg-amber-500/20 text-amber-300 font-semibold">Mode Edit Aktif</span>
       </div>
       
-      <!-- Langkah 1: Cari Game -->
       <div class="mb-5">
         <label class="block text-sm text-slate-300 mb-1.5 font-medium">1. Ketik Nama Game & Tarik Cover Otomatis</label>
         <div class="flex gap-2">
@@ -153,7 +150,7 @@
       </form>
     </div>
 
-    <!-- Tabel Data Game dengan Search Cepat -->
+    <!-- Tabel Data Game dengan Search & Sort By Lengkap -->
     <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
       <div class="p-4 border-b border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h2 class="font-semibold">Daftar Game Tersimpan (<span id="totalCount">0</span>)</h2>
@@ -200,7 +197,69 @@
     let savedGamesList = [];
     let availablePlatforms = [];
 
-    // Cek jika sesi sudah terbuka
+    const GAME_ALIASES = {
+      'gta': 'grand theft auto',
+      'gta 5': 'grand theft auto v',
+      'gta 4': 'grand theft auto iv',
+      'gta 3': 'grand theft auto iii',
+      'gta sa': 'grand theft auto san andreas',
+      'pes': 'pro evolution soccer efootball',
+      'efootball': 'pro evolution soccer efootball',
+      're': 'resident evil',
+      're2': 'resident evil 2',
+      're3': 'resident evil 3',
+      're4': 'resident evil 4',
+      're7': 'resident evil 7',
+      're8': 'resident evil village',
+      'gow': 'god of war',
+      'rdr': 'red dead redemption',
+      'rdr2': 'red dead redemption 2',
+      'dmc': 'devil may cry',
+      'mk': 'mortal kombat',
+      'ctr': 'crash team racing',
+      'nfs': 'need for speed',
+      'cod': 'call of duty',
+      'ac': 'assassin',
+      'ff': 'final fantasy',
+      'dbz': 'dragon ball'
+    };
+
+    function isSmartMatch(gameTitle, gamePlatform, gameGenre, rawKeyword) {
+      if (!rawKeyword) return true;
+      const titleLower = gameTitle.toLowerCase();
+      const platLower = (gamePlatform || '').toLowerCase();
+      const genreLower = (gameGenre || '').toLowerCase();
+
+      if (titleLower.includes(rawKeyword) || platLower.includes(rawKeyword) || genreLower.includes(rawKeyword)) return true;
+
+      const expanded = GAME_ALIASES[rawKeyword];
+      if (expanded) {
+        if (rawKeyword === 'pes' || rawKeyword === 'efootball') {
+          return titleLower.includes('pro evolution soccer') || titleLower.includes('efootball') || titleLower.includes('pes');
+        }
+        return expanded.split(' ').every(w => titleLower.includes(w));
+      }
+
+      let replacedKeyword = rawKeyword;
+      Object.keys(GAME_ALIASES).forEach(shortKey => {
+        const regex = new RegExp(`\\b${shortKey}\\b`, 'gi');
+        replacedKeyword = replacedKeyword.replace(regex, GAME_ALIASES[shortKey]);
+      });
+
+      if (replacedKeyword !== rawKeyword) {
+        return replacedKeyword.split(' ').filter(Boolean).every(t => titleLower.includes(t));
+      }
+      return false;
+    }
+
+    function parseSizeToGB(sizeStr) {
+      if (!sizeStr) return 0;
+      const str = sizeStr.toString().toUpperCase().replace(',', '.');
+      const num = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
+      if (str.includes('MB')) return num / 1024;
+      return num;
+    }
+
     if (adminPin) {
       document.getElementById('lockScreen').classList.add('hidden');
       document.getElementById('adminMain').classList.remove('hidden');
@@ -275,8 +334,6 @@
       return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-// Prioritas 1: Poster Bersih Wikipedia/Wikidata (Akurat untuk Game Baru & Populer)
-    // Prioritas 2: Poster Digital Polos (SteamGrid) jika Wikipedia tidak memiliki gambar
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -319,7 +376,6 @@
           let coverUrl = '';
           const wikiTitle = entity?.sitelinks?.enwiki?.title || g.label;
 
-          // 1. Cek gambar resmi di Wikidata / Wikipedia (Plain Poster Bersih)
           if (entity?.claims?.P18?.[0]) {
             const fileName = entity.claims.P18[0].mainsnak.datavalue.value;
             coverUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=500`;
@@ -335,7 +391,6 @@
             } catch (e) {}
           }
 
-          // 2. Cadangan jika Wikipedia kosong: tarik poster digital polos tanpa kaset fisik
           if (!coverUrl) {
             coverUrl = `https://tse2.mm.bing.net/th?q=${encodeURIComponent('"' + g.label + '" steamgrid vertical cover')}&w=450&h=600&c=7&rs=1&p=0`;
           }
@@ -405,24 +460,12 @@
       }
     }
 
-    function parseSizeToGB(sizeStr) {
-      if (!sizeStr) return 0;
-      const str = sizeStr.toString().toUpperCase().replace(',', '.');
-      const num = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
-      if (str.includes('MB')) return num / 1024;
-      return num;
-    }
-
     function renderTable() {
       const tbody = document.getElementById('gameTableBody');
       const keyword = document.getElementById('filterTableInput').value.toLowerCase().trim();
       const sortVal = document.getElementById('adminSortSelect').value;
 
-      let filtered = savedGamesList.filter(g => 
-        g.nama.toLowerCase().includes(keyword) || 
-        g.platform.toLowerCase().includes(keyword) ||
-        g.genre.toLowerCase().includes(keyword)
-      );
+      let filtered = savedGamesList.filter(g => isSmartMatch(g.nama, g.platform, g.genre, keyword));
 
       if (sortVal === 'OLDEST') {
         filtered.reverse();
@@ -441,21 +484,6 @@
         tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Tidak ada game yang cocok.</td></tr>';
         return;
       }
-
-      tbody.innerHTML = filtered.map(g => `
-        <tr class="hover:bg-slate-700/30">
-          <td class="p-3"><img src="${g.cover}" class="w-10 h-14 object-fill rounded bg-slate-700" onerror="this.src='https://placehold.co/100x140?text=No+Cover'"></td>
-          <td class="p-3 font-medium">${g.nama}</td>
-          <td class="p-3"><span class="px-2 py-0.5 text-xs rounded bg-blue-500/20 text-blue-300 font-semibold">${g.platform}</span></td>
-          <td class="p-3 text-slate-300">${g.genre}</td>
-          <td class="p-3 text-slate-300">${g.ukuran}</td>
-          <td class="p-3 text-right whitespace-nowrap space-x-1">
-            <button onclick="startEdit('${g.id}')" class="text-amber-300 hover:text-amber-200 text-xs bg-amber-500/15 px-2.5 py-1 rounded">Edit</button>
-            <button onclick="deleteGame('${g.id}')" class="text-red-400 hover:text-red-300 text-xs bg-red-500/10 px-2.5 py-1 rounded">Hapus</button>
-          </td>
-        </tr>
-      `).join('');
-    }
 
       tbody.innerHTML = filtered.map(g => `
         <tr class="hover:bg-slate-700/30">
