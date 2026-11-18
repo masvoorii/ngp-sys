@@ -3,48 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - Nathan Game Palembang</title>
+  <title>System - Nathan Game Palembang</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
+<body class="bg-slate-900 text-slate-100 min-h-screen">
 
-  <div class="max-w-4xl mx-auto">
-    <!-- Header dengan Logo Toko -->
+  <!-- LAYAR KUNCI PIN (Muncul sebelum masuk panel) -->
+  <div id="lockScreen" class="fixed inset-0 bg-slate-950 flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-xs w-full text-center shadow-2xl">
+      <img src="https://lh3.googleusercontent.com/d/1MpDNxzABV6F8dV2IeSeTfhkVSdh0wneT" alt="Logo"
+        class="w-14 h-14 rounded-xl mx-auto mb-3 border border-slate-700 object-cover">
+      <h2 class="font-bold text-base text-blue-400">Nathan Game Palembang</h2>
+      <p class="text-xs text-slate-400 mb-4">Masukkan PIN Akses Admin</p>
+      <form onsubmit="unlockAdmin(event)" class="space-y-3">
+        <input type="password" id="lockPinInput" required placeholder="••••••" autofocus
+          class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-center tracking-widest text-sm focus:outline-none focus:border-blue-500">
+        <button type="submit" id="btnUnlock"
+          class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-lg text-sm transition">
+          Buka Panel
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- KONTEN UTAMA ADMIN (Tersembunyi sampai PIN benar) -->
+  <div id="adminMain" class="hidden max-w-4xl mx-auto p-4 md:p-8">
+    <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-700 pb-4">
       <div class="flex items-center gap-3">
-        <img id="adminLogo" src="" alt="Logo" onerror="this.style.display='none'"
+        <img src="https://lh3.googleusercontent.com/d/1MpDNxzABV6F8dV2IeSeTfhkVSdh0wneT" alt="Logo"
           class="w-11 h-11 rounded-xl object-cover bg-slate-800 border border-slate-700">
         <div>
           <h1 class="text-xl font-bold text-blue-400">Nathan Game Palembang</h1>
-          <p class="text-xs text-slate-400">Panel Admin Database & Platform</p>
+          <p class="text-xs text-slate-400">Panel Admin Database, Platform & WhatsApp</p>
         </div>
       </div>
-      <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-lg border border-slate-700">
-        <span class="text-xs text-slate-400">🔑 PIN Admin:</span>
-        <input type="password" id="adminSecretInput" placeholder="Masukkan password..."
-          onchange="sessionStorage.setItem('ps_admin_key', this.value)"
-          class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-blue-500 w-36">
-      </div>
+      <button onclick="logoutAdmin()" class="text-xs bg-red-500/15 hover:bg-red-500/25 text-red-300 px-3 py-1.5 rounded-lg border border-red-500/20">
+        🔒 Kunci Panel
+      </button>
     </div>
 
-    <!-- Panel Kelola Platform Dinamis -->
-    <div class="bg-slate-800/80 p-5 rounded-xl shadow mb-6 border border-slate-700">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-200">Kelola Daftar Platform Konsol</h2>
-          <p class="text-xs text-slate-400">Otomatis muncul di pilihan input & filter katalog user</p>
-        </div>
+    <!-- Pengaturan WhatsApp & Platform Konsol -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <!-- Box WhatsApp Toko -->
+      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+        <h2 class="text-sm font-semibold text-emerald-400 mb-1">📱 Nomor WhatsApp Order</h2>
+        <p class="text-xs text-slate-400 mb-3">Gunakan kode negara 62 (Contoh: 6281234567890)</p>
         <div class="flex gap-2">
-          <input type="text" id="newPlatformInput" placeholder="Misal: Nintendo Switch"
-            class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 w-44">
-          <button type="button" onclick="addPlatform()" id="btnAddPlat"
-            class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition whitespace-nowrap">
-            + Tambah
+          <input type="text" id="waNumberInput" placeholder="62812..."
+            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500">
+          <button type="button" onclick="saveWhatsApp()" id="btnSaveWA"
+            class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition">
+            Simpan WA
           </button>
         </div>
       </div>
-      <div id="platformChips" class="flex flex-wrap gap-2 pt-2 border-t border-slate-700/70">
-        <span class="text-xs text-slate-500">Memuat platform...</span>
+
+      <!-- Box Platform Dinamis -->
+      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+        <h2 class="text-sm font-semibold text-slate-200 mb-1">🎮 Daftar Platform Konsol</h2>
+        <div class="flex gap-2 mb-2.5">
+          <input type="text" id="newPlatformInput" placeholder="Misal: PS4, PS2 Classic, Switch"
+            class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+          <button type="button" onclick="addPlatform()" id="btnAddPlat"
+            class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+            + Tambah
+          </button>
+        </div>
+        <div id="platformChips" class="flex flex-wrap gap-1.5">
+          <span class="text-xs text-slate-500">Memuat...</span>
+        </div>
       </div>
     </div>
 
@@ -100,8 +128,8 @@
         </div>
 
         <div>
-          <label class="block text-xs text-slate-400 mb-1">Genre (Otomatis / Bisa Diedit)</label>
-          <input type="text" id="genre" required placeholder="Action, Fighting, dll..."
+          <label class="block text-xs text-slate-400 mb-1">Genre / Keterangan (Otomatis / Bisa Diedit)</label>
+          <input type="text" id="genre" required placeholder="Action, Fighting, Full DLC..."
             class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
         </div>
 
@@ -125,11 +153,15 @@
       </form>
     </div>
 
-    <!-- Tabel Data Game -->
+    <!-- Tabel Data Game dengan Search Cepat -->
     <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
-      <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+      <div class="p-4 border-b border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h2 class="font-semibold">Daftar Game Tersimpan (<span id="totalCount">0</span>)</h2>
-        <button onclick="loadData()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded">Refresh Data</button>
+        <div class="flex gap-2 w-full sm:w-auto">
+          <input type="text" id="filterTableInput" oninput="renderTable()" placeholder="Cari di daftar..."
+            class="flex-1 sm:w-48 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+          <button onclick="loadData()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg">Refresh</button>
+        </div>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -153,41 +185,87 @@
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycby0Zg_fWuHMLJ-wPvpr-JiVuohn8moT6blKVr32uzGRrngAk0IGZpp8WUllovHrfCc9/exec";
-    const LOGO_URL = "https://lh3.googleusercontent.com/d/1MpDNxzABV6F8dV2IeSeTfhkVSdh0wneT";
 
-    document.getElementById('adminLogo').src = LOGO_URL;
-
+    let adminPin = sessionStorage.getItem('ps_admin_key') || '';
     let foundGamesCache = [];
     let savedGamesList = [];
     let availablePlatforms = [];
 
-    const savedKey = sessionStorage.getItem('ps_admin_key');
-    if (savedKey) document.getElementById('adminSecretInput').value = savedKey;
+    // Cek jika sesi sudah terbuka
+    if (adminPin) {
+      document.getElementById('lockScreen').classList.add('hidden');
+      document.getElementById('adminMain').classList.remove('hidden');
+      loadData();
+    }
 
-    function getSecret() {
-      const val = document.getElementById('adminSecretInput').value.trim();
-      if (!val) {
-        alert('Masukkan PIN / Password Admin terlebih dahulu di pojok kanan atas!');
-        document.getElementById('adminSecretInput').focus();
-        return null;
+    async function unlockAdmin(e) {
+      e.preventDefault();
+      const inputPin = document.getElementById('lockPinInput').value.trim();
+      const btn = document.getElementById('btnUnlock');
+      btn.disabled = true;
+      btn.innerText = 'Memeriksa...';
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ secret: inputPin, action: 'verifyPin' })
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+          adminPin = inputPin;
+          sessionStorage.setItem('ps_admin_key', adminPin);
+          document.getElementById('lockScreen').classList.add('hidden');
+          document.getElementById('adminMain').classList.remove('hidden');
+          loadData();
+        } else {
+          alert(result.message || 'PIN Salah!');
+        }
+      } catch (err) {
+        alert('Gagal terhubung ke server.');
       }
-      return val;
+
+      btn.disabled = false;
+      btn.innerText = 'Buka Panel';
+    }
+
+    function logoutAdmin() {
+      sessionStorage.removeItem('ps_admin_key');
+      adminPin = '';
+      document.getElementById('lockPinInput').value = '';
+      document.getElementById('adminMain').classList.add('hidden');
+      document.getElementById('lockScreen').classList.remove('hidden');
+    }
+
+    async function saveWhatsApp() {
+      const wa = document.getElementById('waNumberInput').value.trim();
+      if (!wa) return alert('Isi nomor WhatsApp terlebih dahulu!');
+      const btn = document.getElementById('btnSaveWA');
+      btn.disabled = true;
+      btn.innerText = '...';
+
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ secret: adminPin, action: 'updateWA', whatsapp: wa })
+      });
+      const result = await res.json();
+      alert(result.message);
+      btn.disabled = false;
+      btn.innerText = 'Simpan WA';
     }
 
     function detectGenre(text) {
       const t = text.toLowerCase();
       const genres = [];
-      if (t.includes('naruto') || t.includes('tekken') || t.includes('street fighter') || t.includes('mortal kombat') || t.includes('dragon ball') || t.includes('fighting')) genres.push('Fighting');
+      if (t.includes('naruto') || t.includes('tekken') || t.includes('street fighter') || t.includes('mortal kombat') || t.includes('dragon ball') || t.includes('ufc') || t.includes('fighting')) genres.push('Fighting');
       if (t.includes('fifa') || t.includes('fc 2') || t.includes('efootball') || t.includes('pes') || t.includes('nba') || t.includes('wwe') || t.includes('sports')) genres.push('Sports');
-      if (t.includes('need for speed') || t.includes('gran turismo') || t.includes('forza') || t.includes('motogp') || t.includes('racing')) genres.push('Racing');
-      if (t.includes('resident evil') || t.includes('silent hill') || t.includes('outlast') || t.includes('horror')) genres.push('Survival Horror');
-      if (t.includes('final fantasy') || t.includes('persona') || t.includes('witcher') || t.includes('elden ring') || t.includes('rpg')) genres.push('RPG');
-      if (t.includes('call of duty') || t.includes('battlefield') || t.includes('sniper') || t.includes('shooter')) genres.push('Shooter');
-      if (t.includes('grand theft auto') || t.includes('red dead') || t.includes('spider-man') || t.includes('assassin')) genres.push('Action, Open World');
+      if (t.includes('need for speed') || t.includes('gran turismo') || t.includes('forza') || t.includes('crash team racing') || t.includes('racing')) genres.push('Racing');
+      if (t.includes('resident evil') || t.includes('silent hill') || t.includes('evil within') || t.includes('callisto') || t.includes('fatal frame') || t.includes('horror')) genres.push('Survival Horror');
+      if (t.includes('final fantasy') || t.includes('persona') || t.includes('witcher') || t.includes('elden ring') || t.includes('nier') || t.includes('bloodborne') || t.includes('sekiro') || t.includes('rpg')) genres.push('Action RPG');
+      if (t.includes('call of duty') || t.includes('battlefield') || t.includes('conflict') || t.includes('shooter')) genres.push('Shooter');
+      if (t.includes('grand theft auto') || t.includes('red dead') || t.includes('spider-man') || t.includes('assassin') || t.includes('warriors')) genres.push('Action, Open World');
       return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
-    // Prioritas 1: Poster Bersih Wikipedia/Wikidata -> Prioritas 2: Plain Vertical Poster (Tanpa Bingkai Konsol)
     async function fetchGameInfo() {
       const query = document.getElementById('searchGameInput').value.trim();
       if (!query) return alert('Ketik nama game terlebih dahulu!');
@@ -230,7 +308,6 @@
           let coverUrl = '';
           const wikiTitle = entity?.sitelinks?.enwiki?.title || g.label;
 
-          // 1. Cek gambar asli di Wikidata / Wikipedia (Plain Poster Bersih)
           if (entity?.claims?.P18?.[0]) {
             const fileName = entity.claims.P18[0].mainsnak.datavalue.value;
             coverUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=500`;
@@ -246,7 +323,6 @@
             } catch (e) {}
           }
 
-          // 2. Cadangan jika Wikipedia kosong: tarik poster digital polos (SteamGrid) tanpa kaset fisik
           if (!coverUrl) {
             coverUrl = `https://tse2.mm.bing.net/th?q=${encodeURIComponent(g.label + ' steamgrid vertical cover')}&w=450&h=600&c=7&rs=1&p=0`;
           }
@@ -292,14 +368,12 @@
     function selectFetchedGame(index) {
       const game = foundGamesCache[index];
       if (!game) return;
-
       document.getElementById('nama').value = game.title;
       document.getElementById('cover').value = game.cover;
       document.getElementById('genre').value = detectGenre(game.title + ' ' + game.description);
       document.getElementById('previewCover').src = game.cover;
     }
 
-    // Muat Data Games & Platforms sekaligus
     async function loadData() {
       const tbody = document.getElementById('gameTableBody');
       tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Memuat data...</td></tr>';
@@ -309,31 +383,43 @@
         
         savedGamesList = (data.games || []).reverse();
         availablePlatforms = data.platforms || [];
+        if (data.whatsapp) document.getElementById('waNumberInput').value = data.whatsapp;
 
         renderPlatforms();
-
-        document.getElementById('totalCount').innerText = savedGamesList.length;
-        if (savedGamesList.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada data game.</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = savedGamesList.map(g => `
-          <tr class="hover:bg-slate-700/30">
-            <td class="p-3"><img src="${g.cover}" class="w-10 h-14 object-fill rounded bg-slate-700" onerror="this.src='https://placehold.co/100x140?text=No+Cover'"></td>
-            <td class="p-3 font-medium">${g.nama}</td>
-            <td class="p-3"><span class="px-2 py-0.5 text-xs rounded bg-blue-500/20 text-blue-300 font-semibold">${g.platform}</span></td>
-            <td class="p-3 text-slate-300">${g.genre}</td>
-            <td class="p-3 text-slate-300">${g.ukuran}</td>
-            <td class="p-3 text-right whitespace-nowrap space-x-1">
-              <button onclick="startEdit('${g.id}')" class="text-amber-300 hover:text-amber-200 text-xs bg-amber-500/15 px-2.5 py-1 rounded">Edit</button>
-              <button onclick="deleteGame('${g.id}')" class="text-red-400 hover:text-red-300 text-xs bg-red-500/10 px-2.5 py-1 rounded">Hapus</button>
-            </td>
-          </tr>
-        `).join('');
+        renderTable();
       } catch (err) {
         tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-red-400">Gagal memuat data. Cek URL Apps Script.</td></tr>';
       }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('gameTableBody');
+      const keyword = document.getElementById('filterTableInput').value.toLowerCase().trim();
+      const filtered = savedGamesList.filter(g => 
+        g.nama.toLowerCase().includes(keyword) || 
+        g.platform.toLowerCase().includes(keyword) ||
+        g.genre.toLowerCase().includes(keyword)
+      );
+
+      document.getElementById('totalCount').innerText = filtered.length;
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Tidak ada game yang cocok.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(g => `
+        <tr class="hover:bg-slate-700/30">
+          <td class="p-3"><img src="${g.cover}" class="w-10 h-14 object-fill rounded bg-slate-700" onerror="this.src='https://placehold.co/100x140?text=No+Cover'"></td>
+          <td class="p-3 font-medium">${g.nama}</td>
+          <td class="p-3"><span class="px-2 py-0.5 text-xs rounded bg-blue-500/20 text-blue-300 font-semibold">${g.platform}</span></td>
+          <td class="p-3 text-slate-300">${g.genre}</td>
+          <td class="p-3 text-slate-300">${g.ukuran}</td>
+          <td class="p-3 text-right whitespace-nowrap space-x-1">
+            <button onclick="startEdit('${g.id}')" class="text-amber-300 hover:text-amber-200 text-xs bg-amber-500/15 px-2.5 py-1 rounded">Edit</button>
+            <button onclick="deleteGame('${g.id}')" class="text-red-400 hover:text-red-300 text-xs bg-red-500/10 px-2.5 py-1 rounded">Hapus</button>
+          </td>
+        </tr>
+      `).join('');
     }
 
     function renderPlatforms() {
@@ -342,59 +428,44 @@
       const currentSelected = selectEl.value;
 
       if (availablePlatforms.length === 0) {
-        chipsDiv.innerHTML = '<span class="text-xs text-amber-400">Belum ada platform. Tambahkan di atas!</span>';
+        chipsDiv.innerHTML = '<span class="text-xs text-amber-400">Belum ada platform.</span>';
         selectEl.innerHTML = '<option value="">-- Tambah platform dulu --</option>';
         return;
       }
 
       chipsDiv.innerHTML = availablePlatforms.map(p => `
-        <span class="inline-flex items-center gap-1.5 bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-xs font-medium text-slate-200">
+        <span class="inline-flex items-center gap-1 bg-slate-900 border border-slate-700 px-2.5 py-0.5 rounded-full text-[11px] font-medium text-slate-200">
           ${p}
-          <button type="button" onclick="deletePlatform('${p}')" title="Hapus platform ${p}"
-            class="text-slate-400 hover:text-red-400 font-bold ml-1">&times;</button>
+          <button type="button" onclick="deletePlatform('${p}')" class="text-slate-400 hover:text-red-400 font-bold ml-1">&times;</button>
         </span>
       `).join('');
 
       selectEl.innerHTML = availablePlatforms.map(p => `<option value="${p}">${p}</option>`).join('');
-      if (availablePlatforms.includes(currentSelected)) {
-        selectEl.value = currentSelected;
-      }
+      if (availablePlatforms.includes(currentSelected)) selectEl.value = currentSelected;
     }
 
     async function addPlatform() {
-      const secret = getSecret();
-      if (!secret) return;
       const input = document.getElementById('newPlatformInput');
       const platName = input.value.trim();
-      if (!platName) return alert('Ketik nama platform baru terlebih dahulu!');
+      if (!platName) return alert('Ketik nama platform baru!');
 
       const btn = document.getElementById('btnAddPlat');
       btn.disabled = true;
-      btn.innerText = '...';
-
       const res = await fetch(API_URL, {
         method: 'POST',
-        body: JSON.stringify({ secret: secret, action: 'addPlatform', platformName: platName })
+        body: JSON.stringify({ secret: adminPin, action: 'addPlatform', platformName: platName })
       });
       const result = await res.json();
-      if (result.status === 'error') {
-        alert(result.message);
-      } else {
-        input.value = '';
-        await loadData();
-      }
+      if (result.status === 'error') alert(result.message);
+      else { input.value = ''; await loadData(); }
       btn.disabled = false;
-      btn.innerText = '+ Tambah';
     }
 
     async function deletePlatform(platName) {
-      const secret = getSecret();
-      if (!secret) return;
-      if (!confirm(`Hapus platform "${platName}" dari daftar pilihan? (Game lama dengan label ini tetap aman di database)`)) return;
-
+      if (!confirm(`Hapus platform "${platName}"?`)) return;
       const res = await fetch(API_URL, {
         method: 'POST',
-        body: JSON.stringify({ secret: secret, action: 'deletePlatform', platformName: platName })
+        body: JSON.stringify({ secret: adminPin, action: 'deletePlatform', platformName: platName })
       });
       const result = await res.json();
       if (result.status === 'error') alert(result.message);
@@ -407,13 +478,11 @@
 
       document.getElementById('editId').value = game.id;
       document.getElementById('nama').value = game.nama;
-      
       const selectEl = document.getElementById('platform');
       if (!availablePlatforms.includes(game.platform)) {
         selectEl.innerHTML += `<option value="${game.platform}">${game.platform}</option>`;
       }
       selectEl.value = game.platform;
-
       document.getElementById('genre').value = game.genre;
       document.getElementById('ukuran').value = game.ukuran;
       document.getElementById('cover').value = game.cover;
@@ -426,9 +495,8 @@
 
       const btn = document.getElementById('btnSubmit');
       btn.innerText = '💾 Update Perubahan';
-      btn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
-      btn.classList.add('bg-amber-600', 'hover:bg-amber-500');
-
+      btn.classList.replace('bg-blue-600', 'bg-amber-600');
+      btn.classList.replace('hover:bg-blue-500', 'hover:bg-amber-500');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -446,16 +514,13 @@
 
       const btn = document.getElementById('btnSubmit');
       btn.innerText = '+ Simpan Game ke Katalog';
-      btn.classList.remove('bg-amber-600', 'hover:bg-amber-500');
-      btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+      btn.classList.replace('bg-amber-600', 'bg-blue-600');
+      btn.classList.replace('hover:bg-amber-500', 'hover:bg-blue-500');
       renderPlatforms();
     }
 
     document.getElementById('gameForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const secret = getSecret();
-      if (!secret) return;
-
       const editId = document.getElementById('editId').value;
       const isEditing = editId !== '';
       const btn = document.getElementById('btnSubmit');
@@ -463,7 +528,7 @@
       btn.innerText = isEditing ? 'Menyimpan perubahan...' : 'Menyimpan...';
 
       const payload = {
-        secret: secret,
+        secret: adminPin,
         action: isEditing ? 'edit' : 'add',
         id: editId,
         nama: document.getElementById('nama').value,
@@ -473,10 +538,7 @@
         cover: document.getElementById('cover').value
       };
 
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
+      const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
       const result = await res.json();
 
       if (result.status === 'error') {
@@ -486,25 +548,19 @@
         cancelEdit();
         loadData();
       }
-      
       btn.disabled = false;
     });
 
     async function deleteGame(id) {
-      const secret = getSecret();
-      if (!secret) return;
       if (!confirm('Yakin mau hapus game ini dari daftar?')) return;
-
       const res = await fetch(API_URL, {
         method: 'POST',
-        body: JSON.stringify({ secret: secret, action: 'delete', id: id })
+        body: JSON.stringify({ secret: adminPin, action: 'delete', id: id })
       });
       const result = await res.json();
       if (result.status === 'error') alert(result.message);
       else loadData();
     }
-
-    loadData();
   </script>
 </body>
 </html>
