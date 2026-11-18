@@ -157,9 +157,18 @@
     <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden">
       <div class="p-4 border-b border-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h2 class="font-semibold">Daftar Game Tersimpan (<span id="totalCount">0</span>)</h2>
-        <div class="flex gap-2 w-full sm:w-auto">
+        <div class="flex flex-wrap gap-2 w-full sm:w-auto">
           <input type="text" id="filterTableInput" oninput="renderTable()" placeholder="Cari di daftar..."
-            class="flex-1 sm:w-48 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+            class="flex-1 sm:w-44 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+          <select id="adminSortSelect" onchange="renderTable()"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500">
+            <option value="NEWEST">Terbaru</option>
+            <option value="OLDEST">Terlama</option>
+            <option value="AZ">Judul A - Z</option>
+            <option value="ZA">Judul Z - A</option>
+            <option value="SIZE_ASC">Ukuran Terkecil</option>
+            <option value="SIZE_DESC">Ukuran Terbesar</option>
+          </select>
           <button onclick="loadData()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg">Refresh</button>
         </div>
       </div>
@@ -396,20 +405,57 @@
       }
     }
 
+    function parseSizeToGB(sizeStr) {
+      if (!sizeStr) return 0;
+      const str = sizeStr.toString().toUpperCase().replace(',', '.');
+      const num = parseFloat(str.replace(/[^0-9.]/g, '')) || 0;
+      if (str.includes('MB')) return num / 1024;
+      return num;
+    }
+
     function renderTable() {
       const tbody = document.getElementById('gameTableBody');
       const keyword = document.getElementById('filterTableInput').value.toLowerCase().trim();
-      const filtered = savedGamesList.filter(g => 
+      const sortVal = document.getElementById('adminSortSelect').value;
+
+      let filtered = savedGamesList.filter(g => 
         g.nama.toLowerCase().includes(keyword) || 
         g.platform.toLowerCase().includes(keyword) ||
         g.genre.toLowerCase().includes(keyword)
       );
+
+      if (sortVal === 'OLDEST') {
+        filtered.reverse();
+      } else if (sortVal === 'AZ') {
+        filtered.sort((a, b) => a.nama.localeCompare(b.nama));
+      } else if (sortVal === 'ZA') {
+        filtered.sort((a, b) => b.nama.localeCompare(a.nama));
+      } else if (sortVal === 'SIZE_ASC') {
+        filtered.sort((a, b) => parseSizeToGB(a.ukuran) - parseSizeToGB(b.ukuran));
+      } else if (sortVal === 'SIZE_DESC') {
+        filtered.sort((a, b) => parseSizeToGB(b.ukuran) - parseSizeToGB(a.ukuran));
+      }
 
       document.getElementById('totalCount').innerText = filtered.length;
       if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Tidak ada game yang cocok.</td></tr>';
         return;
       }
+
+      tbody.innerHTML = filtered.map(g => `
+        <tr class="hover:bg-slate-700/30">
+          <td class="p-3"><img src="${g.cover}" class="w-10 h-14 object-fill rounded bg-slate-700" onerror="this.src='https://placehold.co/100x140?text=No+Cover'"></td>
+          <td class="p-3 font-medium">${g.nama}</td>
+          <td class="p-3"><span class="px-2 py-0.5 text-xs rounded bg-blue-500/20 text-blue-300 font-semibold">${g.platform}</span></td>
+          <td class="p-3 text-slate-300">${g.genre}</td>
+          <td class="p-3 text-slate-300">${g.ukuran}</td>
+          <td class="p-3 text-right whitespace-nowrap space-x-1">
+            <button onclick="startEdit('${g.id}')" class="text-amber-300 hover:text-amber-200 text-xs bg-amber-500/15 px-2.5 py-1 rounded">Edit</button>
+            <button onclick="deleteGame('${g.id}')" class="text-red-400 hover:text-red-300 text-xs bg-red-500/10 px-2.5 py-1 rounded">Hapus</button>
+          </td>
+        </tr>
+      `).join('');
+    }
 
       tbody.innerHTML = filtered.map(g => `
         <tr class="hover:bg-slate-700/30">
