@@ -1,4 +1,4 @@
-# Nathan Game Palembang — Admin Dashboard & Catalog CMS 🛠️🎮
+# Nathan Game Palembang — Admin Dashboard & Catalog CMS (`ngp-sys`) 🛠️🎮
 
 ![HTML5](https://img.shields.io/badge/HTML5-Single_File_Panel-E34F26?style=flat-square&logo=html5&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-CDN-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
@@ -31,8 +31,8 @@ The companion **Admin Dashboard & Headless CMS Panel** for the **[Nathan Game Pa
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/masvoorii/REPO_NAME.git](https://github.com/masvoorii/REPO_NAME.git)
-   cd REPO_NAME
+   git clone https://github.com/masvoorii/ngp-sys.git
+   cd ngp-sys
    ```
 
 2. **Configure API Endpoint:**
