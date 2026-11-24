@@ -97,7 +97,6 @@
       <form id="gameForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
         <input type="hidden" id="editId" value="">
 
-        <!-- Kolom Preview & Upload File Sendiri -->
         <div class="md:row-span-3 flex flex-col items-center justify-center bg-slate-900/70 rounded-lg p-3 border border-slate-700">
           <img id="previewCover" src="https://placehold.co/300x400/1e293b/94a3b8?text=Cover+Otomatis" 
             class="w-36 h-48 object-fill rounded shadow-md mb-2.5">
@@ -132,9 +131,19 @@
         </div>
 
         <div>
-          <label class="block text-xs text-slate-400 mb-1">Genre / Keterangan (Otomatis / Bisa Diedit)</label>
-          <input type="text" id="genre" required placeholder="Action, Fighting, Full DLC..."
+          <label class="block text-xs text-slate-400 mb-1">Genre / Keterangan</label>
+          <input type="text" id="genre" list="genreOptions" required placeholder="Action, Fighting, Full DLC..."
             class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
+          <datalist id="genreOptions">
+            <option value="Action, Adventure">
+            <option value="Action, Open World">
+            <option value="Action RPG">
+            <option value="Fighting">
+            <option value="Sports">
+            <option value="Racing">
+            <option value="Survival Horror">
+            <option value="Shooter">
+          </datalist>
         </div>
 
         <div>
@@ -204,61 +213,6 @@
     let savedGamesList = [];
     let availablePlatforms = [];
 
-    const GAME_ALIASES = {
-      'gta': 'grand theft auto',
-      'gta 5': 'grand theft auto v',
-      'gta 4': 'grand theft auto iv',
-      'gta 3': 'grand theft auto iii',
-      'gta sa': 'grand theft auto san andreas',
-      'pes': 'pro evolution soccer efootball',
-      'efootball': 'pro evolution soccer efootball',
-      're': 'resident evil',
-      're2': 'resident evil 2',
-      're3': 'resident evil 3',
-      're4': 'resident evil 4',
-      're7': 'resident evil 7',
-      're8': 'resident evil village',
-      'gow': 'god of war',
-      'rdr': 'red dead redemption',
-      'rdr2': 'red dead redemption 2',
-      'dmc': 'devil may cry',
-      'mk': 'mortal kombat',
-      'ctr': 'crash team racing',
-      'nfs': 'need for speed',
-      'cod': 'call of duty',
-      'ac': 'assassin',
-      'ff': 'final fantasy',
-      'dbz': 'dragon ball'
-    };
-
-    function isSmartMatch(gameTitle, gamePlatform, gameGenre, rawKeyword) {
-      if (!rawKeyword) return true;
-      const titleLower = gameTitle.toLowerCase();
-      const platLower = (gamePlatform || '').toLowerCase();
-      const genreLower = (gameGenre || '').toLowerCase();
-
-      if (titleLower.includes(rawKeyword) || platLower.includes(rawKeyword) || genreLower.includes(rawKeyword)) return true;
-
-      const expanded = GAME_ALIASES[rawKeyword];
-      if (expanded) {
-        if (rawKeyword === 'pes' || rawKeyword === 'efootball') {
-          return titleLower.includes('pro evolution soccer') || titleLower.includes('efootball') || titleLower.includes('pes');
-        }
-        return expanded.split(' ').every(w => titleLower.includes(w));
-      }
-
-      let replacedKeyword = rawKeyword;
-      Object.keys(GAME_ALIASES).forEach(shortKey => {
-        const regex = new RegExp(`\\b${shortKey}\\b`, 'gi');
-        replacedKeyword = replacedKeyword.replace(regex, GAME_ALIASES[shortKey]);
-      });
-
-      if (replacedKeyword !== rawKeyword) {
-        return replacedKeyword.split(' ').filter(Boolean).every(t => titleLower.includes(t));
-      }
-      return false;
-    }
-
     function parseSizeToGB(sizeStr) {
       if (!sizeStr) return 0;
       const str = sizeStr.toString().toUpperCase().replace(',', '.');
@@ -311,7 +265,6 @@
       document.getElementById('lockScreen').classList.remove('hidden');
     }
 
-    // Kompresi ringan di browser & upload gambar langsung ke Google Drive via Apps Script
     function handleCoverUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -326,7 +279,6 @@
       reader.onload = function(e) {
         const img = new Image();
         img.onload = async function() {
-          // Resize proporsional (maks lebar 600px) agar upload cepat & hemat storage Drive
           const canvas = document.createElement('canvas');
           const maxWidth = 600;
           const scale = img.width > maxWidth ? maxWidth / img.width : 1;
@@ -339,7 +291,6 @@
           const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
           const base64Data = dataUrl.split(',')[1];
 
-          // Tampilkan preview lokal instan
           document.getElementById('previewCover').src = dataUrl;
 
           try {
@@ -397,19 +348,6 @@
       alert(result.message);
       btn.disabled = false;
       btn.innerText = 'Simpan WA';
-    }
-
-    function detectGenre(text) {
-      const t = text.toLowerCase();
-      const genres = [];
-      if (t.includes('naruto') || t.includes('tekken') || t.includes('street fighter') || t.includes('mortal kombat') || t.includes('dragon ball') || t.includes('ufc') || t.includes('fighting')) genres.push('Fighting');
-      if (t.includes('fifa') || t.includes('fc 2') || t.includes('efootball') || t.includes('pes') || t.includes('nba') || t.includes('wwe') || t.includes('sports')) genres.push('Sports');
-      if (t.includes('need for speed') || t.includes('gran turismo') || t.includes('forza') || t.includes('crash team racing') || t.includes('racing')) genres.push('Racing');
-      if (t.includes('resident evil') || t.includes('silent hill') || t.includes('evil within') || t.includes('callisto') || t.includes('fatal frame') || t.includes('horror')) genres.push('Survival Horror');
-      if (t.includes('final fantasy') || t.includes('persona') || t.includes('witcher') || t.includes('elden ring') || t.includes('nier') || t.includes('bloodborne') || t.includes('sekiro') || t.includes('rpg')) genres.push('Action RPG');
-      if (t.includes('call of duty') || t.includes('battlefield') || t.includes('conflict') || t.includes('shooter')) genres.push('Shooter');
-      if (t.includes('grand theft auto') || t.includes('red dead') || t.includes('spider-man') || t.includes('assassin') || t.includes('warriors')) genres.push('Action, Open World');
-      return genres.length > 0 ? genres.slice(0, 2).join(', ') : 'Action, Adventure';
     }
 
     async function fetchGameInfo() {
@@ -516,7 +454,6 @@
       if (!game) return;
       document.getElementById('nama').value = game.title;
       document.getElementById('cover').value = game.cover;
-      document.getElementById('genre').value = detectGenre(game.title + ' ' + game.description);
       document.getElementById('previewCover').src = game.cover;
       document.getElementById('uploadStatusText').innerText = 'JPG / PNG / WEBP';
       document.getElementById('uploadStatusText').className = 'text-[10px] text-slate-400 text-center mt-1';
@@ -545,14 +482,16 @@
       const keyword = document.getElementById('filterTableInput').value.toLowerCase().trim();
       const sortVal = document.getElementById('adminSortSelect').value;
 
-      let filtered = savedGamesList.filter(g => isSmartMatch(g.nama, g.platform, g.genre, keyword));
+      let filtered = savedGamesList.filter(g =>
+        !keyword || [g.nama, g.platform, g.genre].some(v => String(v || '').toLowerCase().includes(keyword))
+      );
 
       if (sortVal === 'OLDEST') {
-        filtered.reverse();
+        filtered = [...filtered].reverse();
       } else if (sortVal === 'AZ') {
-        filtered.sort((a, b) => a.nama.localeCompare(b.nama));
+        filtered.sort((a, b) => String(a.nama).localeCompare(String(b.nama)));
       } else if (sortVal === 'ZA') {
-        filtered.sort((a, b) => b.nama.localeCompare(a.nama));
+        filtered.sort((a, b) => String(b.nama).localeCompare(String(a.nama)));
       } else if (sortVal === 'SIZE_ASC') {
         filtered.sort((a, b) => parseSizeToGB(a.ukuran) - parseSizeToGB(b.ukuran));
       } else if (sortVal === 'SIZE_DESC') {
